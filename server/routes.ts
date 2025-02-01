@@ -43,6 +43,30 @@ async function calculateAverageWaitTime(): Promise<number> {
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
+  // Doctor registration endpoint
+  app.post("/api/doctors", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const [doctor] = await db
+        .insert(doctors)
+        .values({
+          userId: req.user.id,
+          fullName: req.body.fullName,
+          specialization: req.body.specialization,
+          qualifications: req.body.qualifications,
+          contactNumber: req.body.contactNumber,
+          availability: req.body.availability || {}
+        })
+        .returning();
+
+      res.status(201).json({ ...req.user, doctor });
+    } catch (error) {
+      console.error('Doctor registration error:', error);
+      res.status(500).send("Failed to register doctor");
+    }
+  });
+
   const httpServer = createServer(app);
   const wss = setupWebSocketServer(httpServer);
 

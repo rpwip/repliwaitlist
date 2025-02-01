@@ -39,6 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      toast({
+        title: "Login successful",
+        description: "Welcome back!",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -56,6 +60,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      toast({
+        title: "Registration successful",
+        description: "Your account has been created.",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -67,9 +75,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const registerDoctorMutation = useMutation({
-    mutationFn: async (doctorData: any) => {
-      const res = await apiRequest("POST", "/api/register/doctor", doctorData);
-      return await res.json();
+    mutationFn: async (data: any) => {
+      // First register the user
+      const userRes = await apiRequest("POST", "/api/register", {
+        username: data.username,
+        password: data.password,
+        isAdmin: data.isAdmin || false,
+      });
+      const user = await userRes.json();
+
+      // Then create the doctor profile
+      const doctorRes = await apiRequest("POST", "/api/doctors", {
+        userId: user.id,
+        fullName: data.fullName,
+        specialization: data.specialization,
+        qualifications: data.qualifications,
+        contactNumber: data.contactNumber,
+      });
+
+      return await doctorRes.json();
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
@@ -93,6 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
     },
     onError: (error: Error) => {
       toast({
