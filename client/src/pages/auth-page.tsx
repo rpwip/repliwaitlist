@@ -62,10 +62,8 @@ export default function AuthPage() {
       qualifications: "",
       contactNumber: "",
     },
-    mode: "onTouched",
   });
 
-  // Debug logging for form state
   useEffect(() => {
     const subscription = registrationForm.watch((value) => {
       console.log("Form values:", value);
@@ -217,7 +215,7 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Specialization</FormLabel>
                         <FormControl>
-                          <Select 
+                          <Select
                             onValueChange={field.onChange}
                             value={field.value}
                           >
@@ -266,10 +264,10 @@ export default function AuthPage() {
                     )}
                   />
 
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     className="w-full"
-                    disabled={registerDoctorMutation.isPending || !registrationForm.formState.isValid}
+                    disabled={registerDoctorMutation.isPending}
                   >
                     {registerDoctorMutation.isPending ? "Registering..." : "Register"}
                   </Button>
