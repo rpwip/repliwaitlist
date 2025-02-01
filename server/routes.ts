@@ -85,13 +85,12 @@ export function registerRoutes(app: Express): Server {
         const [queuePosition] = await db
           .select({
             position: sql<number>`
-              SELECT COUNT(*) 
-              FROM queue_entries q
-              WHERE q.queue_number <= ${queueEntry.queueNumber}
-              AND q.status = 'waiting'
-            `
+              COUNT(*) FILTER (WHERE queue_entries.queue_number <= ${queueEntry.queueNumber} 
+              AND queue_entries.status = 'waiting')
+            `.as('position')
           })
-          .from(queueEntries);
+          .from(queueEntries)
+          .limit(1);
 
         patientResponse = {
           ...patient,
