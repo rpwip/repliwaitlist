@@ -249,7 +249,14 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/queue", async (_req, res) => {
     try {
       const entries = await db
-        .select()
+        .select({
+          id: queueEntries.id,
+          queueNumber: queueEntries.queueNumber,
+          status: queueEntries.status,
+          isPaid: queueEntries.isPaid,
+          patientId: queueEntries.patientId,
+          patient: patients
+        })
         .from(queueEntries)
         .innerJoin(patients, eq(queueEntries.patientId, patients.id))
         .where(
