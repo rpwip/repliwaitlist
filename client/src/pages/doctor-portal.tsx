@@ -243,31 +243,79 @@ export default function DoctorPortal() {
       {/* Brand Distribution Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Prescription Brand Distribution</CardTitle>
+          <CardTitle>Prescription Brand Distribution & Savings Opportunities</CardTitle>
         </CardHeader>
-        <CardContent className="h-[400px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <RechartsPieChart>
-              <Pie
-                data={dashboardData.prescriptionStats?.brandDistribution || []}
-                dataKey="count"
-                nameKey="brandName"
-                cx="50%"
-                cy="50%"
-                outerRadius={150}
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-              >
-                {dashboardData.prescriptionStats?.brandDistribution.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={COLORS[index % COLORS.length]}
-                    opacity={entry.isCloudCarePartner ? 1 : 0.6}
-                  />
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Pie Chart */}
+            <div className="h-[400px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={dashboardData.prescriptionStats?.brandDistribution || []}
+                    dataKey="count"
+                    nameKey="brandName"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={150}
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                  >
+                    {dashboardData.prescriptionStats?.brandDistribution.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={COLORS[index % COLORS.length]}
+                        opacity={entry.isCloudCarePartner ? 1 : 0.6}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Alternative Brands & Savings */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg mb-4">CloudCare Partner Alternatives</h3>
+              {dashboardData.prescriptionStats?.brandDistribution
+                .filter(brand => !brand.isCloudCarePartner)
+                .map((brand, index) => (
+                  <div 
+                    key={brand.brandName}
+                    className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Box className="h-5 w-5 text-muted-foreground" />
+                        <h4 className="font-medium">{brand.brandName}</h4>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {brand.count} prescriptions
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <ArrowUpRight className="h-4 w-4" />
+                        <span>Potential savings for patients: ${(brand.count * 15).toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-blue-600">
+                        <BadgeCheck className="h-4 w-4" />
+                        <span>Extra reward points: +{Math.round(brand.count * 75)}</span>
+                      </div>
+                      <div className="mt-3">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => setBrandsSearchTerm("CloudCare")}
+                        >
+                          View Partner Alternatives
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip />
-            </RechartsPieChart>
-          </ResponsiveContainer>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
