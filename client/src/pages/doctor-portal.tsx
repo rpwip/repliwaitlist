@@ -457,6 +457,54 @@ export default function DoctorPortal() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* Associated Clinics Section */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Associated Clinics</CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setView("clinics")}
+          >
+            View All Clinics
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {dashboardData?.clinicAssignments?.slice(0, 3).map((data) => (
+              <div
+                key={data.clinic.id}
+                className="rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Building2 className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{data.clinic.name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {data.patientCount} patients
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">{data.clinic.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span>{data.clinic.contactNumber}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
     const renderClinics = () => (
@@ -672,54 +720,6 @@ export default function DoctorPortal() {
                         <p className="text-xs text-muted-foreground">
                           Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
                         </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Associated Clinics */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Associated Clinics</CardTitle>
-                <Button variant="outline" size="sm" className="text-xs">
-                  View All Clinics
-                </Button>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-6">
-                  {dashboardData?.clinicAssignments?.map((data) => (
-                    <div
-                      key={data.assignment.id}
-                      className="rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Building2 className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium">{data.clinic.name}</h4>
-                            <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                              {data.clinic.address}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-semibold">{data.patientCount}</p>
-                          <p className="text-sm text-muted-foreground">Patients</p>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="grid grid-cols-2 gap-2 mt-4">
-                        <Button variant="outline" size="sm" className="w-full">
-                          View Schedule
-                        </Button>
-                        <Button variant="outline" size="sm" className="w-full">
-                          View Patients
-                        </Button>
                       </div>
                     </div>
                   ))}
