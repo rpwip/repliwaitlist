@@ -11,9 +11,23 @@ import {
   UserRound,
   Clock,
   Loader2,
+  ChevronRight,
+  Activity,
 } from "lucide-react";
 import { useParams } from "wouter";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInMonths } from "date-fns";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import type { 
   SelectPatient, 
   SelectAppointment, 
@@ -34,6 +48,8 @@ type Medication = {
   dosage: string;
   frequency?: string;
 };
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 export default function PatientPortal() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -84,6 +100,22 @@ export default function PatientPortal() {
     }
   });
 
+  const healthAnalytics = {
+    visitsByMonth: [
+      { month: 'Jan', visits: 2 },
+      { month: 'Feb', visits: 1 },
+      { month: 'Mar', visits: 3 },
+      { month: 'Apr', visits: 2 },
+      { month: 'May', visits: 1 },
+    ],
+    diagnosisDistribution: [
+      { name: 'Hypertension', value: 35 },
+      { name: 'Diabetes', value: 25 },
+      { name: 'Allergies', value: 20 },
+      { name: 'Other', value: 20 },
+    ],
+  };
+
   if (isLoadingPatient || isLoadingAppointments || isLoadingPrescriptions || 
       isLoadingDiagnoses || isLoadingVisits) {
     return (
@@ -122,60 +154,82 @@ export default function PatientPortal() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-primary text-primary-foreground py-6">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold">Patient Portal</h1>
-              <p className="mt-1 text-sm opacity-90">
-                Welcome back, {patientData.fullName}
-              </p>
-            </div>
-            <Button variant="secondary" asChild>
-              <a href="/book-appointment">Book Appointment</a>
-            </Button>
-          </div>
+    <div className="min-h-screen bg-background flex">
+      {/* Fixed Left Navigation */}
+      <div className="w-64 border-r bg-card p-4 flex flex-col gap-2">
+        <div className="mb-6">
+          <h2 className="font-semibold text-lg">Patient Portal</h2>
+          <p className="text-sm text-muted-foreground">{patientData.fullName}</p>
         </div>
-      </header>
+        <Button
+          variant={activeTab === "overview" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("overview")}
+        >
+          <UserRound className="mr-2 h-4 w-4" />
+          Overview
+        </Button>
+        <Button
+          variant={activeTab === "appointments" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("appointments")}
+        >
+          <CalendarDays className="mr-2 h-4 w-4" />
+          Appointments
+        </Button>
+        <Button
+          variant={activeTab === "prescriptions" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("prescriptions")}
+        >
+          <Pill className="mr-2 h-4 w-4" />
+          Prescriptions
+        </Button>
+        <Button
+          variant={activeTab === "diagnoses" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("diagnoses")}
+        >
+          <Stethoscope className="mr-2 h-4 w-4" />
+          Diagnoses
+        </Button>
+        <Button
+          variant={activeTab === "visits" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("visits")}
+        >
+          <ClipboardList className="mr-2 h-4 w-4" />
+          Visit History
+        </Button>
+        <Button
+          variant={activeTab === "queue" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("queue")}
+        >
+          <Clock className="mr-2 h-4 w-4" />
+          Queue Status
+        </Button>
+        <Button
+          variant={activeTab === "analytics" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("analytics")}
+        >
+          <Activity className="mr-2 h-4 w-4" />
+          Health Analytics
+        </Button>
+      </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-6 gap-4 mb-8">
-            <TabsTrigger value="overview" className="flex gap-2 items-center">
-              <UserRound className="h-4 w-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex gap-2 items-center">
-              <CalendarDays className="h-4 w-4" />
-              Appointments
-            </TabsTrigger>
-            <TabsTrigger value="prescriptions" className="flex gap-2 items-center">
-              <Pill className="h-4 w-4" />
-              Prescriptions
-            </TabsTrigger>
-            <TabsTrigger value="diagnoses" className="flex gap-2 items-center">
-              <Stethoscope className="h-4 w-4" />
-              Diagnoses
-            </TabsTrigger>
-            <TabsTrigger value="visits" className="flex gap-2 items-center">
-              <ClipboardList className="h-4 w-4" />
-              Visit History
-            </TabsTrigger>
-            <TabsTrigger value="queue" className="flex gap-2 items-center">
-              <Clock className="h-4 w-4" />
-              Queue Status
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview">
-            <div className="grid md:grid-cols-2 gap-6">
+      {/* Main Content Area */}
+      <div className="flex-1 p-6 overflow-auto">
+        <div className="max-w-6xl mx-auto">
+          {activeTab === "overview" && (
+            <div className="grid gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Personal Information</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <dl className="space-y-2">
+                  <dl className="grid md:grid-cols-2 gap-4">
                     <div>
                       <dt className="text-sm text-muted-foreground">Full Name</dt>
                       <dd className="text-lg">{patientData.fullName}</dd>
@@ -196,40 +250,90 @@ export default function PatientPortal() {
                 </CardContent>
               </Card>
 
+              {/* Quick Stats */}
+              <div className="grid md:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Upcoming Appointments</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-primary">
+                      {appointments?.filter(apt => new Date(apt.scheduledFor) > new Date()).length || 0}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Active Prescriptions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-primary">
+                      {prescriptions?.filter(p => p.isActive).length || 0}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Recent Visits</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-primary">
+                      {visitHistory?.filter(v => differenceInMonths(new Date(), new Date(v.visitedAt)) < 1).length || 0}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "analytics" && (
+            <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Upcoming Appointments</CardTitle>
+                  <CardTitle>Visit Frequency</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  {appointments?.filter(apt => new Date(apt.scheduledFor) > new Date())
-                    .slice(0, 3)
-                    .map(appointment => (
-                      <div
-                        key={appointment.id}
-                        className="flex items-center justify-between py-2"
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={healthAnalytics.visitsByMonth}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="visits" stroke="#8884d8" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Diagnosis Distribution</CardTitle>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={healthAnalytics.diagnosisDistribution}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label
                       >
-                        <div>
-                          <p className="font-medium">
-                            Appointment ID: {appointment.id}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDateTime(appointment.scheduledFor)}
-                          </p>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </div>
-                    ))}
-                  {(!appointments || appointments.length === 0) && (
-                    <p className="text-muted-foreground">No upcoming appointments</p>
-                  )}
+                        {healthAnalytics.diagnosisDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="appointments">
+          {activeTab === "appointments" && (
             <Card>
               <CardHeader>
                 <CardTitle>Appointments History</CardTitle>
@@ -269,9 +373,9 @@ export default function PatientPortal() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="prescriptions">
+          {activeTab === "prescriptions" && (
             <Card>
               <CardHeader>
                 <CardTitle>Current Prescriptions</CardTitle>
@@ -319,9 +423,9 @@ export default function PatientPortal() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="diagnoses">
+          {activeTab === "diagnoses" && (
             <Card>
               <CardHeader>
                 <CardTitle>Medical Diagnoses</CardTitle>
@@ -361,10 +465,10 @@ export default function PatientPortal() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="visits">
-            <Card>
+          {activeTab === "visits" && (
+             <Card>
               <CardHeader>
                 <CardTitle>Visit History</CardTitle>
               </CardHeader>
@@ -409,9 +513,9 @@ export default function PatientPortal() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          )}
 
-          <TabsContent value="queue">
+          {activeTab === "queue" && (
             <Card>
               <CardHeader>
                 <CardTitle>Current Queue Status</CardTitle>
@@ -443,9 +547,9 @@ export default function PatientPortal() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
