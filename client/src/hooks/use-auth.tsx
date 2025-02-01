@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error("Login error:", error);
       toast({
         title: "Login failed",
         description: error.message,
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
         description: error.message,
@@ -76,33 +78,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registerDoctorMutation = useMutation({
     mutationFn: async (data: any) => {
-      // First register the user
-      const userRes = await apiRequest("POST", "/api/register", {
-        username: data.username,
-        password: data.password,
-        isAdmin: data.isAdmin || false,
-      });
-      const user = await userRes.json();
+      console.log("Registering doctor with data:", data);
+      try {
+        // First register the user
+        const userRes = await apiRequest("POST", "/api/register", {
+          username: data.username,
+          password: data.password,
+          isAdmin: data.isAdmin || false,
+        });
 
-      // Then create the doctor profile
-      const doctorRes = await apiRequest("POST", "/api/doctors", {
-        userId: user.id,
-        fullName: data.fullName,
-        specialization: data.specialization,
-        qualifications: data.qualifications,
-        contactNumber: data.contactNumber,
-      });
+        if (!userRes.ok) {
+          const error = await userRes.text();
+          throw new Error(`User registration failed: ${error}`);
+        }
 
-      return await doctorRes.json();
+        const user = await userRes.json();
+        console.log("User registered successfully:", user);
+
+        // Then create the doctor profile
+        const doctorRes = await apiRequest("POST", "/api/doctors", {
+          userId: user.id,
+          fullName: data.fullName,
+          specialization: data.specialization,
+          qualifications: data.qualifications,
+          contactNumber: data.contactNumber,
+        });
+
+        if (!doctorRes.ok) {
+          const error = await doctorRes.text();
+          throw new Error(`Doctor profile creation failed: ${error}`);
+        }
+
+        const doctor = await doctorRes.json();
+        console.log("Doctor profile created successfully:", doctor);
+        return doctor;
+      } catch (error) {
+        console.error("Doctor registration error:", error);
+        throw error;
+      }
     },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
+    onSuccess: (doctor: SelectUser) => {
+      queryClient.setQueryData(["/api/user"], doctor);
       toast({
         title: "Registration successful",
         description: "Welcome to Cloud Cares! You can now access the doctor portal.",
       });
     },
     onError: (error: Error) => {
+      console.error("Doctor registration error:", error);
       toast({
         title: "Registration failed",
         description: error.message,
@@ -123,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error("Logout error:", error);
       toast({
         title: "Logout failed",
         description: error.message,
