@@ -721,16 +721,16 @@ app.get("/api/doctor/dashboard", async (req, res) => {
     // Get prescription statistics
     const prescriptionStats = await db
       .select({
-        totalCount: sql<number>`count(distinct prescriptions.id)`.as('total_count'),
+        totalCount: sql<number>`count(distinct prescriptions.id)`,
         cloudCarePartnerCount: sql<number>`
-          count(distinct case when mb.is_cloud_care_partner then prescriptions.id end)
-        `.as('partner_count'),
+          count(distinct case when medication_brands.is_cloud_care_partner then prescriptions.id end)
+        `,
         nonPartnerCount: sql<number>`
-          count(distinct case when not mb.is_cloud_care_partner then prescriptions.id end)
-        `.as('non_partner_count'),
+          count(distinct case when not medication_brands.is_cloud_care_partner then prescriptions.id end)
+        `,
         potentialExtraRewards: sql<number>`
-          sum(case when not mb.is_cloud_care_partner then mb.reward_points else 0 end)
-        `.as('potential_rewards')
+          sum(case when not medication_brands.is_cloud_care_partner then medication_brands.reward_points else 0 end)
+        `
       })
       .from(prescriptions)
       .innerJoin(
@@ -738,8 +738,8 @@ app.get("/api/doctor/dashboard", async (req, res) => {
         eq(prescriptionAnalytics.prescriptionId, prescriptions.id)
       )
       .innerJoin(
-        medicationBrands.as('mb'),
-        eq(prescriptionAnalytics.medicationBrandId, sql.raw('mb.id'))
+        medicationBrands,
+        eq(prescriptionAnalytics.medicationBrandId, medicationBrands.id)
       )
       .where(eq(prescriptions.doctorId, doctor.id));
 
@@ -748,7 +748,7 @@ app.get("/api/doctor/dashboard", async (req, res) => {
       .select({
         brandName: medicationBrands.brandName,
         isCloudCarePartner: medicationBrands.isCloudCarePartner,
-        count: sql<number>`count(distinct prescriptions.id)`.as('count')
+        count: sql<number>`count(distinct prescriptions.id)`
       })
       .from(prescriptions)
       .innerJoin(
