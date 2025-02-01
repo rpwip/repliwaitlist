@@ -4,11 +4,15 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 
 export function useQueue() {
   useEffect(() => {
+    // Use window.location to determine WebSocket protocol
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
     ws.onmessage = () => {
+      // Invalidate and refetch queue data when we receive a WebSocket message
       queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
     };
+
     return () => ws.close();
   }, []);
 
@@ -20,6 +24,9 @@ export function useQueue() {
     mutationFn: async ({ queueId, status }: { queueId: number; status: string }) => {
       const res = await apiRequest("POST", `/api/queue/${queueId}/status`, { status });
       return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
     },
   });
 
@@ -52,7 +59,7 @@ export function useQueue() {
   });
 
   const verifyPaymentMutation = useMutation({
-    mutationFn: async (queueId: number, transactionRef: string) => {
+    mutationFn: async ({ queueId, transactionRef }: { queueId: number; transactionRef: string }) => {
       const res = await apiRequest("GET", `/api/verify-payment/${queueId}/${transactionRef}`);
       return res.json();
     },
