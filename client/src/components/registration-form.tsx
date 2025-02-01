@@ -78,15 +78,25 @@ export default function RegistrationForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="fullName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{getTranslation('fullName', language)}</FormLabel>
+              <FormLabel className="flex items-baseline gap-2">
+                <span>Full Name</span>
+                {language !== 'en' && (
+                  <span className="text-muted-foreground">
+                    ({getTranslation('fullName', language)})
+                  </span>
+                )}
+              </FormLabel>
               <FormControl>
-                <Input placeholder={getTranslation('fullNamePlaceholder', language)} {...field} />
+                <Input
+                  placeholder={getTranslation('fullNamePlaceholder', language)}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -98,12 +108,19 @@ export default function RegistrationForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{getTranslation('email', language)}</FormLabel>
+              <FormLabel className="flex items-baseline gap-2">
+                <span>Email</span>
+                {language !== 'en' && (
+                  <span className="text-muted-foreground">
+                    ({getTranslation('email', language)})
+                  </span>
+                )}
+              </FormLabel>
               <FormControl>
-                <Input 
-                  type="email" 
+                <Input
+                  type="email"
                   placeholder={getTranslation('emailPlaceholder', language)}
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -116,9 +133,16 @@ export default function RegistrationForm() {
           name="mobile"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{getTranslation('mobile', language)}</FormLabel>
+              <FormLabel className="flex items-baseline gap-2">
+                <span>Mobile Number</span>
+                {language !== 'en' && (
+                  <span className="text-muted-foreground">
+                    ({getTranslation('mobile', language)})
+                  </span>
+                )}
+              </FormLabel>
               <FormControl>
-                <Input 
+                <Input
                   placeholder={getTranslation('mobilePlaceholder', language)}
                   {...field}
                 />
@@ -135,7 +159,14 @@ export default function RegistrationForm() {
               {getTranslation('registering', language)}
             </>
           ) : (
-            getTranslation('register', language)
+            <span className="flex items-center gap-2">
+              <span>Register</span>
+              {language !== 'en' && (
+                <span className="text-sm">
+                  ({getTranslation('register', language)})
+                </span>
+              )}
+            </span>
           )}
         </Button>
       </form>
