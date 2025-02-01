@@ -254,7 +254,10 @@ export function registerRoutes(app: Express): Server {
     try {
       const [entry] = await db
         .update(queueEntries)
-        .set({ isPaid: true })
+        .set({ 
+          isPaid: true,
+          status: "waiting" // Set initial status when payment is confirmed
+        })
         .where(eq(queueEntries.id, parseInt(queueId)))
         .returning();
 

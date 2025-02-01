@@ -1,23 +1,54 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export function useQueue() {
+  const { toast } = useToast();
+  const wsRef = useRef<WebSocket | null>(null);
+
   useEffect(() => {
-    // Use window.location to determine WebSocket protocol
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    function connect() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
-    ws.onmessage = () => {
-      // Invalidate and refetch queue data when we receive a WebSocket message
-      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+      ws.onopen = () => {
+        console.log('WebSocket connected');
+      };
+
+      ws.onmessage = () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        toast({
+          title: "Connection Error",
+          description: "Having trouble connecting to real-time updates",
+          variant: "destructive",
+        });
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected, attempting to reconnect...');
+        setTimeout(connect, 3000);
+      };
+
+      wsRef.current = ws;
+    }
+
+    connect();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
-
-    return () => ws.close();
-  }, []);
+  }, [toast]);
 
   const queueQuery = useQuery<any[]>({
     queryKey: ["/api/queue"],
+    refetchInterval: 30000, // Fallback polling every 30 seconds if WebSocket fails
   });
 
   const updateStatusMutation = useMutation({
@@ -68,6 +99,7 @@ export function useQueue() {
   return {
     queue: queueQuery.data ?? [],
     isLoading: queueQuery.isLoading,
+    isError: queueQuery.isError,
     updateStatus: updateStatusMutation.mutate,
     registerPatient: registerPatientMutation.mutateAsync,
     confirmPayment: confirmPaymentMutation.mutate,
