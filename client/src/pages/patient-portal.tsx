@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,18 +10,27 @@ import {
   Stethoscope,
   UserRound,
   Clock,
+  Loader2,
 } from "lucide-react";
-import { Loader2 } from "lucide-react";
 import { useParams } from "wouter";
-import { format } from "date-fns";
-import type { SelectPatient, SelectAppointment, SelectPrescription, SelectDiagnosis, SelectVisitRecord } from "@db/schema";
+import { format, parseISO } from "date-fns";
+import type { 
+  SelectPatient, 
+  SelectAppointment, 
+  SelectPrescription, 
+  SelectDiagnosis, 
+  SelectVisitRecord,
+  SelectQueueEntry 
+} from "@db/schema";
 
 type PatientResponse = SelectPatient & {
-  queueEntry?: {
-    id: number;
-    queueNumber: number;
-    status: string;
-  };
+  queueEntry?: SelectQueueEntry;
+};
+
+type Medication = {
+  name: string;
+  dosage: string;
+  frequency?: string;
 };
 
 export default function PatientPortal() {
@@ -63,6 +73,16 @@ export default function PatientPortal() {
       </div>
     );
   }
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A";
+    return format(parseISO(dateString), "PPP");
+  };
+
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A";
+    return format(parseISO(dateString), "PPP p");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -153,13 +173,10 @@ export default function PatientPortal() {
                       >
                         <div>
                           <p className="font-medium">
-                            Dr. {appointment.doctor.fullName}
+                            Appointment ID: {appointment.id}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {format(
-                              new Date(appointment.scheduledFor),
-                              "MMM d, yyyy 'at' h:mm a"
-                            )}
+                            {formatDateTime(appointment.scheduledFor)}
                           </p>
                         </div>
                         <Button variant="outline" size="sm">
@@ -175,7 +192,221 @@ export default function PatientPortal() {
             </div>
           </TabsContent>
 
-          {/* Additional tab contents will be implemented next */}
+          <TabsContent value="appointments">
+            <Card>
+              <CardHeader>
+                <CardTitle>Appointments History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {appointments?.map(appointment => (
+                    <div
+                      key={appointment.id}
+                      className="flex items-center justify-between border-b pb-4"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          Type: {appointment.type}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatDateTime(appointment.scheduledFor)}
+                        </p>
+                        {appointment.notes && (
+                          <p className="text-sm mt-1">{appointment.notes}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                          appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {appointment.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {(!appointments || appointments.length === 0) && (
+                    <p className="text-center text-muted-foreground">No appointments found</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="prescriptions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Prescriptions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {prescriptions?.map(prescription => (
+                    <div
+                      key={prescription.id}
+                      className="border rounded-lg p-4"
+                    >
+                      <div className="flex justify-between mb-2">
+                        <div>
+                          <p className="font-medium">Prescribed on: {formatDate(prescription.createdAt)}</p>
+                          {prescription.endDate && (
+                            <p className="text-sm text-muted-foreground">
+                              Until: {formatDate(prescription.endDate)}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                          prescription.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100'
+                        }`}>
+                          {prescription.isActive ? 'Active' : 'Completed'}
+                        </span>
+                      </div>
+                      <div className="mt-2">
+                        <h4 className="text-sm font-medium">Medications:</h4>
+                        <ul className="list-disc list-inside text-sm ml-2">
+                          {(prescription.medications as Medication[]).map((med, index) => (
+                            <li key={index}>{med.name} - {med.dosage}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      {prescription.instructions && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {prescription.instructions}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  {(!prescriptions || prescriptions.length === 0) && (
+                    <p className="text-center text-muted-foreground">No active prescriptions</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="diagnoses">
+            <Card>
+              <CardHeader>
+                <CardTitle>Medical Diagnoses</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {diagnoses?.map(diagnosis => (
+                    <div
+                      key={diagnosis.id}
+                      className="border rounded-lg p-4"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{diagnosis.condition}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Diagnosed on: {formatDate(diagnosis.diagnosedAt)}
+                          </p>
+                        </div>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                          diagnosis.status === 'active' ? 'bg-yellow-100 text-yellow-800' :
+                          diagnosis.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {diagnosis.status}
+                        </span>
+                      </div>
+                      {diagnosis.notes && (
+                        <p className="mt-2 text-sm">
+                          {diagnosis.notes}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  {(!diagnoses || diagnoses.length === 0) && (
+                    <p className="text-center text-muted-foreground">No diagnoses found</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="visits">
+            <Card>
+              <CardHeader>
+                <CardTitle>Visit History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {visitHistory?.map(visit => (
+                    <div
+                      key={visit.id}
+                      className="border rounded-lg p-4"
+                    >
+                      <div className="mb-2">
+                        <p className="font-medium">Visit Date: {formatDate(visit.visitedAt)}</p>
+                        <p className="text-sm text-muted-foreground mt-1">Symptoms: {visit.symptoms}</p>
+                      </div>
+                      {visit.diagnosis && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium">Diagnosis:</p>
+                          <p className="text-sm">{visit.diagnosis}</p>
+                        </div>
+                      )}
+                      {visit.treatment && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium">Treatment:</p>
+                          <p className="text-sm">{visit.treatment}</p>
+                        </div>
+                      )}
+                      {visit.followUpNeeded && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-sm text-primary">Follow-up needed</span>
+                          {visit.followUpDate && (
+                            <span className="text-sm">
+                              on {formatDate(visit.followUpDate)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {(!visitHistory || visitHistory.length === 0) && (
+                    <p className="text-center text-muted-foreground">No visit records found</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="queue">
+            <Card>
+              <CardHeader>
+                <CardTitle>Current Queue Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {patientData.queueEntry ? (
+                  <div className="text-center">
+                    <div className="mb-4">
+                      <p className="text-3xl font-bold text-primary">
+                        #{patientData.queueEntry.queueNumber}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">Your Queue Number</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="font-medium">
+                        Status: {patientData.queueEntry.status}
+                      </p>
+                      {patientData.queueEntry.estimatedWaitTime && (
+                        <p>
+                          Estimated Wait Time: {patientData.queueEntry.estimatedWaitTime} minutes
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground">
+                    You are not currently in the queue
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
