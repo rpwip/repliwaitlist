@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -55,25 +55,14 @@ export default function AuthPage() {
   const registrationForm = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
-      username: "",
-      password: "",
-      fullName: "",
-      specialization: "",
-      qualifications: "",
-      contactNumber: "",
+      username: "testdoctor",
+      password: "testpassword123",
+      fullName: "Dr. John Smith",
+      specialization: "general",
+      qualifications: "MBBS, MD",
+      contactNumber: "1234567890",
     },
   });
-
-  useEffect(() => {
-    const subscription = registrationForm.watch((value) => {
-      console.log("Form values:", value);
-      console.log("Form errors:", registrationForm.formState.errors);
-      console.log("Form is valid:", registrationForm.formState.isValid);
-      console.log("Form is submitting:", registrationForm.formState.isSubmitting);
-      console.log("Form is submitted:", registrationForm.formState.isSubmitted);
-    });
-    return () => subscription.unsubscribe();
-  }, [registrationForm]);
 
   const onLogin = async (data: LoginFormValues) => {
     try {
