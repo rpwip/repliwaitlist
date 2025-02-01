@@ -16,9 +16,11 @@ import PaymentQR from "./payment-qr";
 import { useState } from "react";
 import { Card } from "./ui/card";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RegistrationForm() {
   const { registerPatient } = useQueue();
+  const { toast } = useToast();
   const [registrationData, setRegistrationData] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,8 +38,17 @@ export default function RegistrationForm() {
       setIsSubmitting(true);
       const result = await registerPatient(data);
       setRegistrationData(result);
-    } catch (error) {
+      toast({
+        title: "Registration successful",
+        description: "Please proceed with the payment to secure your spot.",
+      });
+    } catch (error: any) {
       console.error(error);
+      toast({
+        title: "Registration failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

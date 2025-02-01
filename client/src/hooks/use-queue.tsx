@@ -32,6 +32,13 @@ export function useQueue() {
       const res = await apiRequest("POST", "/api/register-patient", data);
       return res.json();
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+    },
+    onError: (error) => {
+      console.error('Registration failed:', error);
+      throw error;
+    }
   });
 
   const confirmPaymentMutation = useMutation({
@@ -39,13 +46,16 @@ export function useQueue() {
       const res = await apiRequest("POST", `/api/confirm-payment/${queueId}`);
       return res.json();
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+    },
   });
 
   return {
     queue: queueQuery.data ?? [],
     isLoading: queueQuery.isLoading,
     updateStatus: updateStatusMutation.mutate,
-    registerPatient: registerPatientMutation.mutate,
+    registerPatient: registerPatientMutation.mutateAsync,
     confirmPayment: confirmPaymentMutation.mutate,
   };
 }
