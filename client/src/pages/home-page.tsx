@@ -2,19 +2,18 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import RegistrationForm from "@/components/registration-form";
 import { LanguageSelector } from "@/components/language-selector";
 import { useLanguage } from "@/lib/language-context";
-import { getTranslation } from "@/lib/translations";
 
 export default function HomePage() {
-  const { language } = useLanguage();
-
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground py-8">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center text-center">
-            <h1 className="text-4xl font-bold">{getTranslation('title', language)}</h1>
-            <p className="mt-2 text-lg opacity-90">{getTranslation('subtitle', language)}</p>
-            <div className="mt-4">
+          <div className="flex justify-between items-start">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold">Cloud Cares</h1>
+              <p className="mt-2 text-lg opacity-90">Modern Healthcare Queue Management</p>
+            </div>
+            <div className="w-56">
               <LanguageSelector />
             </div>
           </div>
