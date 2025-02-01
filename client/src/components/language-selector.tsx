@@ -16,17 +16,19 @@ const languages = [
 export function LanguageSelector() {
   const { language, setLanguage } = useLanguage();
 
-  // Find the current language name
-  const currentLanguage = languages.find(lang => lang.code === language)?.name || 'English';
-
   return (
     <div className="w-full">
       <label className="block text-sm font-medium mb-2 text-primary-foreground">
         Language
       </label>
-      <Select defaultValue="en" onValueChange={(value: any) => setLanguage(value)}>
+      <Select 
+        defaultValue={language} 
+        onValueChange={(value: any) => setLanguage(value)}
+      >
         <SelectTrigger>
-          <SelectValue>{currentLanguage}</SelectValue>
+          <SelectValue>
+            {languages.find(lang => lang.code === language)?.name || 'English'}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {languages.map((lang) => (
