@@ -14,7 +14,7 @@ import {
   Award,
   Activity,
 } from "lucide-react";
-import { format, parseISO, subMonths } from "date-fns";
+import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import {
   Area,
@@ -66,6 +66,14 @@ export default function DoctorPortal() {
     );
   }
 
+  if (!dashboardData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>No dashboard data available.</p>
+      </div>
+    );
+  }
+
   const renderOverview = () => (
     <div className="space-y-6">
       {/* Stats Overview */}
@@ -77,10 +85,10 @@ export default function DoctorPortal() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {dashboardData?.metrics[0]?.patientsCount || 0}
+              {dashboardData.metrics[0]?.patientsCount || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              +{dashboardData?.metrics[0]?.newPatientsCount || 0} this month
+              +{dashboardData.metrics[0]?.newPatientsCount || 0} this month
             </p>
           </CardContent>
         </Card>
@@ -90,7 +98,7 @@ export default function DoctorPortal() {
             <Award className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">#{dashboardData?.performanceRank || 0}</div>
+            <div className="text-2xl font-bold">#{dashboardData.performanceRank || 0}</div>
             <p className="text-xs text-muted-foreground">Among CloudCare doctors</p>
           </CardContent>
         </Card>
@@ -100,9 +108,9 @@ export default function DoctorPortal() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${dashboardData?.totalEarnings || 0}</div>
+            <div className="text-2xl font-bold">${dashboardData.totalEarnings || 0}</div>
             <p className="text-xs text-muted-foreground">
-              Projected: ${dashboardData?.projectedEarnings || 0}
+              Projected: ${dashboardData.projectedEarnings || 0}
             </p>
           </CardContent>
         </Card>
@@ -112,7 +120,7 @@ export default function DoctorPortal() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData?.rewardPoints || 0}</div>
+            <div className="text-2xl font-bold">{dashboardData.rewardPoints || 0}</div>
             <p className="text-xs text-muted-foreground">From prescriptions</p>
           </CardContent>
         </Card>
@@ -126,13 +134,19 @@ export default function DoctorPortal() {
         <CardContent className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              data={dashboardData?.metrics || []}
+              data={dashboardData.metrics || []}
               margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
+              <XAxis 
+                dataKey="date" 
+                tickFormatter={(date) => format(new Date(date), 'MMM yyyy')}
+              />
               <YAxis />
-              <Tooltip />
+              <Tooltip 
+                labelFormatter={(date) => format(new Date(date), 'MMMM yyyy')}
+                formatter={(value) => [`$${value}`, 'Revenue']}
+              />
               <Area
                 type="monotone"
                 dataKey="revenue"
@@ -152,7 +166,7 @@ export default function DoctorPortal() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {dashboardData?.clinicAssignments.map((assignment) => (
+            {dashboardData.clinicAssignments.map((assignment) => (
               <div
                 key={assignment.id}
                 className="flex items-center justify-between border-b pb-4 last:border-0"
@@ -235,7 +249,7 @@ export default function DoctorPortal() {
               </CardHeader>
               <CardContent className="p-4">
                 <div className="space-y-4">
-                  {dashboardData?.recentPatients.map((patient) => (
+                  {dashboardData.recentPatients.map((patient) => (
                     <div
                       key={patient.id}
                       className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
@@ -246,7 +260,7 @@ export default function DoctorPortal() {
                       <div>
                         <h4 className="text-sm font-medium">{patient.fullName}</h4>
                         <p className="text-xs text-muted-foreground">
-                          Last visit: {format(new Date(patient.registeredAt!), "PP")}
+                          Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
                         </p>
                       </div>
                     </div>
