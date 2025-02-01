@@ -20,14 +20,29 @@ export default function HomePage() {
       </header>
 
       <main className="container mx-auto px-4 py-12">
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <h2 className="text-2xl font-semibold text-center">Patient Registration</h2>
-          </CardHeader>
-          <CardContent>
-            <RegistrationForm />
-          </CardContent>
-        </Card>
+        <div className="grid md:grid-cols-2 gap-8 items-start">
+          <Card className="w-full">
+            <CardHeader>
+              <h2 className="text-2xl font-semibold text-center">Patient Registration</h2>
+            </CardHeader>
+            <CardContent>
+              <RegistrationForm />
+            </CardContent>
+          </Card>
+
+          <div className="hidden md:block">
+            <img 
+              src="/attached_assets/image post.jpg" 
+              alt="Cloud Cares - India's Digital Health Revolution"
+              className="w-full rounded-lg shadow-lg"
+            />
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <p>Connecting Hospitals, Pharmacies, Doctors, and Patients</p>
+              <p className="mt-2">Email: contact@cloudcaresindia.com</p>
+              <p>Phone: +91 93856 31319</p>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
