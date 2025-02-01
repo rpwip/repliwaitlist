@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 import {
   Users,
   Calendar,
@@ -64,14 +65,29 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function DoctorPortal() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [view, setView] = useState<"overview" | "patients" | "prescriptions">("overview");
+
+  useEffect(() => {
+    if (!user) {
+      setLocation("/auth");
+    }
+  }, [user, setLocation]);
 
   const { data: dashboardData, isLoading } = useQuery<DoctorDashboardData>({
     queryKey: ["/api/doctor/dashboard", user?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/doctor/dashboard`);
-      if (!response.ok) throw new Error("Failed to fetch dashboard data");
+      const response = await fetch("/api/doctor/dashboard", {
+        credentials: "include"
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+            setLocation("/auth");
+            throw new Error("Please log in to view the dashboard");
+        }
+        throw new Error("Failed to fetch dashboard data");
+      }
       return response.json();
     },
     enabled: !!user?.id,
@@ -303,38 +319,6 @@ export default function DoctorPortal() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
-
-      {/* Associated Clinics */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Associated Clinics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {dashboardData.clinicAssignments.map((assignment) => (
-              <div
-                key={assignment.id}
-                className="flex items-center justify-between border-b pb-4 last:border-0"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">{assignment.clinic.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {assignment.clinic.address}
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline" size="sm">
-                  View Schedule
-                </Button>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 
@@ -408,6 +392,38 @@ export default function DoctorPortal() {
                           Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
                         </p>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Associated Clinics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Associated Clinics</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {dashboardData.clinicAssignments.map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="flex flex-col gap-2 cursor-pointer hover:bg-muted p-2 rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Building2 className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium truncate">{assignment.clinic.name}</h4>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {assignment.clinic.address}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full">
+                        View Schedule
+                      </Button>
                     </div>
                   ))}
                 </div>
