@@ -7,7 +7,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLanguage } from "@/lib/language-context";
-import { getTranslation } from "@/lib/translations";
 
 const languages = [
   { code: 'en', name: 'English' },
@@ -18,14 +17,17 @@ const languages = [
 export function LanguageSelector() {
   const { language, setLanguage } = useLanguage();
 
+  // Find the current language name
+  const currentLanguage = languages.find(lang => lang.code === language)?.name || 'English';
+
   return (
     <div className="w-full">
       <label className="block text-sm font-medium mb-2 text-primary-foreground">
         Language
       </label>
-      <Select defaultValue="en" value={language} onValueChange={(value: any) => setLanguage(value)}>
+      <Select value={language} onValueChange={(value: any) => setLanguage(value)}>
         <SelectTrigger>
-          <SelectValue placeholder="Select language" />
+          <SelectValue>{currentLanguage}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {languages.map((lang) => (
