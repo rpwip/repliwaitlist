@@ -28,12 +28,12 @@ const loginFormSchema = z.object({
 });
 
 const registrationSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
-  fullName: z.string().min(1, "Full name is required"),
-  specialization: z.string().min(1, "Specialization is required"),
-  qualifications: z.string().min(1, "Qualifications are required"),
-  contactNumber: z.string().min(1, "Contact number is required"),
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  fullName: z.string().min(2, "Full name must be at least 2 characters"),
+  specialization: z.string().min(1, "Please select a specialization"),
+  qualifications: z.string().min(2, "Qualifications must be at least 2 characters"),
+  contactNumber: z.string().min(10, "Contact number must be at least 10 digits"),
 });
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
@@ -62,7 +62,7 @@ export default function AuthPage() {
       qualifications: "",
       contactNumber: "",
     },
-    mode: "onChange",
+    mode: "onTouched",
   });
 
   // Debug logging for form state
@@ -70,6 +70,9 @@ export default function AuthPage() {
     const subscription = registrationForm.watch((value) => {
       console.log("Form values:", value);
       console.log("Form errors:", registrationForm.formState.errors);
+      console.log("Form is valid:", registrationForm.formState.isValid);
+      console.log("Form is submitting:", registrationForm.formState.isSubmitting);
+      console.log("Form is submitted:", registrationForm.formState.isSubmitted);
     });
     return () => subscription.unsubscribe();
   }, [registrationForm]);
@@ -217,7 +220,6 @@ export default function AuthPage() {
                           <Select 
                             onValueChange={field.onChange}
                             value={field.value}
-                            defaultValue={field.value}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select your specialization" />
@@ -267,7 +269,7 @@ export default function AuthPage() {
                   <Button 
                     type="submit" 
                     className="w-full"
-                    disabled={registerDoctorMutation.isPending}
+                    disabled={registerDoctorMutation.isPending || !registrationForm.formState.isValid}
                   >
                     {registerDoctorMutation.isPending ? "Registering..." : "Register"}
                   </Button>
