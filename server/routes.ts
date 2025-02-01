@@ -8,7 +8,7 @@ import {
   appointments, prescriptions, diagnoses, visitRecords,
   doctors, patientDoctorAssignments
 } from "@db/schema";
-import { desc, eq, and, gt, sql } from "drizzle-orm";
+import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 
 // Store pending transactions in memory (in production, use Redis or database)
@@ -165,21 +165,27 @@ export function registerRoutes(app: Express): Server {
       return res.status(400).send(fromZodError(result.error).toString());
     }
 
-    const [lastQueueEntry] = await db
-      .select()
-      .from(queueEntries)
-      .orderBy(desc(queueEntries.queueNumber))
-      .limit(1);
-
-    const nextQueueNumber = (lastQueueEntry?.queueNumber || 0) + 1;
-
     try {
+      // Get the maximum queue number for today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const [lastQueueEntry] = await db
+        .select()
+        .from(queueEntries)
+        .where(gt(queueEntries.createdAt, today))
+        .orderBy(desc(queueEntries.queueNumber))
+        .limit(1);
+
+      const nextQueueNumber = (lastQueueEntry?.queueNumber || 0) + 1;
+
       const [patient] = await db.insert(patients).values(result.data).returning();
       const [entry] = await db
         .insert(queueEntries)
         .values({
           patientId: patient.id,
           queueNumber: nextQueueNumber,
+          status: "pending" // Will be set to "waiting" after payment
         })
         .returning();
 
@@ -273,7 +279,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get queue status with wait times
   app.get("/api/queue", async (_req, res) => {
     try {
       const avgWaitTime = await calculateAverageWaitTime();
@@ -292,10 +297,13 @@ export function registerRoutes(app: Express): Server {
         .where(
           and(
             eq(queueEntries.isPaid, true),
-            eq(queueEntries.status, "waiting")
+            or(
+              eq(queueEntries.status, "waiting"),
+              eq(queueEntries.status, "in-progress")
+            )
           )
         )
-        .orderBy(desc(queueEntries.createdAt));
+        .orderBy(queueEntries.queueNumber); // Order by queue number instead of creation time
 
       // Calculate estimated wait time for each patient
       const queueWithWaitTimes = entries.map((entry, index) => ({
