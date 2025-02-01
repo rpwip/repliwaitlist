@@ -15,6 +15,7 @@ type AuthContextType = {
   loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
+  registerDoctorMutation: UseMutationResult<SelectUser, Error, any>;
 };
 
 type LoginData = Pick<InsertUser, "username" | "password">;
@@ -65,6 +66,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
+  const registerDoctorMutation = useMutation({
+    mutationFn: async (doctorData: any) => {
+      const res = await apiRequest("POST", "/api/register/doctor", doctorData);
+      return await res.json();
+    },
+    onSuccess: (user: SelectUser) => {
+      queryClient.setQueryData(["/api/user"], user);
+      toast({
+        title: "Registration successful",
+        description: "Welcome to Cloud Cares! You can now access the doctor portal.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Registration failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
@@ -90,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginMutation,
         logoutMutation,
         registerMutation,
+        registerDoctorMutation,
       }}
     >
       {children}
