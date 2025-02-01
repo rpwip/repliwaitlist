@@ -682,20 +682,31 @@ app.get("/api/doctor/dashboard", async (req, res) => {
       )
       .orderBy(desc(doctorMetrics.date));
 
-    // Get clinic assignments with clinic details
-    const clinicAssignments = await db
-      .select({
-        assignment: doctorClinicAssignments,
-        clinic: clinics,
-      })
-      .from(doctorClinicAssignments)
-      .innerJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
-      .where(
-        and(
-          eq(doctorClinicAssignments.doctorId, doctor.id),
-          eq(doctorClinicAssignments.isActive, true)
+      // Get clinic assignments with clinic details and patient counts
+      const clinicAssignments = await db
+        .select({
+          assignment: doctorClinicAssignments,
+          clinic: clinics,
+          patientCount: sql<number>`
+            COUNT(DISTINCT patient_doctor_assignments.patient_id)
+          `.as('patient_count')
+        })
+        .from(doctorClinicAssignments)
+        .innerJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
+        .leftJoin(
+          patientDoctorAssignments,
+          eq(patientDoctorAssignments.doctorId, doctorClinicAssignments.doctorId)
         )
-      );
+        .where(
+          and(
+            eq(doctorClinicAssignments.doctorId, doctor.id),
+            eq(doctorClinicAssignments.isActive, true)
+          )
+        )
+        .groupBy(
+          doctorClinicAssignments.id,
+          clinics.id
+        );
 
     // Get recent patients
     const recentPatients = await db
@@ -784,22 +795,19 @@ app.get("/api/doctor/dashboard", async (req, res) => {
       .where(eq(doctorMetrics.doctorId, doctor.id))
       .limit(1);
 
-    res.json({
-      metrics,
-      clinicAssignments: clinicAssignments.map(({ assignment, clinic }) => ({
-        ...assignment,
-        clinic,
-      })),
-      recentPatients,
-      performanceRank: rank?.rank || 1,
-      totalEarnings: earnings?.total || 0,
-      projectedEarnings: earnings?.projected || 0,
-      rewardPoints: rewardPoints?.total || 0,
-      prescriptionStats: {
-        ...prescriptionStats[0],
-        brandDistribution
-      }
-    });
+      res.json({
+        metrics,
+        clinicAssignments,
+        recentPatients,
+        performanceRank: rank?.rank || 1,
+        totalEarnings: earnings?.total || 0,
+        projectedEarnings: earnings?.projected || 0,
+        rewardPoints: rewardPoints?.total || 0,
+        prescriptionStats: {
+          ...prescriptionStats[0],
+          brandDistribution
+        }
+      });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
     res.status(500).send("Failed to fetch dashboard data");

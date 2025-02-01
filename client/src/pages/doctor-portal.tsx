@@ -44,7 +44,11 @@ import { useAuth } from "@/hooks/use-auth";
 
 type DoctorDashboardData = {
   metrics: SelectDoctorMetrics[];
-  clinicAssignments: (SelectDoctorClinicAssignment & { clinic: SelectClinic })[];
+  clinicAssignments: {
+    assignment: SelectDoctorClinicAssignment;
+    clinic: SelectClinic;
+    patientCount: number;
+  }[];
   recentPatients: SelectPatient[];
   performanceRank: number;
   totalEarnings: number;
@@ -486,30 +490,46 @@ export default function DoctorPortal() {
 
             {/* Associated Clinics */}
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-base">Associated Clinics</CardTitle>
+                <Button variant="outline" size="sm" className="text-xs">
+                  View All Clinics
+                </Button>
               </CardHeader>
               <CardContent className="p-4">
-                <div className="space-y-4">
-                  {dashboardData?.clinicAssignments?.map((assignment) => (
+                <div className="space-y-6">
+                  {dashboardData?.clinicAssignments?.map((data) => (
                     <div
-                      key={assignment.id}
-                      className="flex flex-col gap-2 cursor-pointer hover:bg-muted p-2 rounded-lg"
+                      key={data.assignment.id}
+                      className="rounded-lg border bg-card p-4 hover:bg-accent/50 transition-colors"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Building2 className="h-5 w-5 text-primary" />
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Building2 className="h-6 w-6 text-primary" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{data.clinic.name}</h4>
+                            <p className="text-sm text-muted-foreground truncate max-w-[200px]">
+                              {data.clinic.address}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium truncate">{assignment.clinic.name}</h4>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {assignment.clinic.address}
-                          </p>
+                        <div className="text-right">
+                          <p className="text-lg font-semibold">{data.patientCount}</p>
+                          <p className="text-sm text-muted-foreground">Patients</p>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" className="w-full">
-                        View Schedule
-                      </Button>
+
+                      {/* Action Buttons */}
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        <Button variant="outline" size="sm" className="w-full">
+                          View Schedule
+                        </Button>
+                        <Button variant="outline" size="sm" className="w-full">
+                          View Patients
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
