@@ -7,7 +7,7 @@ import {
   patients, queueEntries, insertPatientSchema,
   appointments, prescriptions, diagnoses, visitRecords,
   doctors, patientDoctorAssignments, patientPreferences, pharmacies, clinics,
-  medicineOrders
+  medicineOrders, insertVisitRecordSchema, insertDiagnosisSchema, insertPrescriptionSchema
 } from "@db/schema";
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
@@ -486,5 +486,140 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to send test SMS");
     }
   });
+
+  // Doctor Portal API endpoints
+  app.get("/api/doctor/patients", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { doctorId } = req.query;
+
+    if (!doctorId) {
+      return res.status(400).send("Doctor ID is required");
+    }
+
+    try {
+      const assignedPatients = await db
+        .select({
+          patients: patients,
+          assignments: patientDoctorAssignments,
+        })
+        .from(patientDoctorAssignments)
+        .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
+        .where(eq(patientDoctorAssignments.doctorId, parseInt(doctorId as string)));
+
+      res.json(assignedPatients.map(({ patients }) => patients));
+    } catch (error) {
+      console.error('Error fetching doctor\'s patients:', error);
+      res.status(500).send("Failed to fetch patients");
+    }
+  });
+
+  app.get("/api/doctor/patient-history/:patientId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { patientId } = req.params;
+
+    try {
+      // Fetch patient basic info
+      const [patient] = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.id, parseInt(patientId)))
+        .limit(1);
+
+      if (!patient) {
+        return res.status(404).send("Patient not found");
+      }
+
+      // Fetch all related records
+      const [visits, diagnoses, prescriptions, appointments] = await Promise.all([
+        db.select().from(visitRecords)
+          .where(eq(visitRecords.patientId, patient.id))
+          .orderBy(desc(visitRecords.visitedAt)),
+        db.select().from(diagnoses)
+          .where(eq(diagnoses.patientId, patient.id))
+          .orderBy(desc(diagnoses.diagnosedAt)),
+        db.select().from(prescriptions)
+          .where(eq(prescriptions.patientId, patient.id))
+          .orderBy(desc(prescriptions.createdAt)),
+        db.select().from(appointments)
+          .where(eq(appointments.patientId, patient.id))
+          .orderBy(desc(appointments.scheduledFor))
+      ]);
+
+      res.json({
+        ...patient,
+        visits,
+        diagnoses,
+        prescriptions,
+        appointments
+      });
+    } catch (error) {
+      console.error('Error fetching patient history:', error);
+      res.status(500).send("Failed to fetch patient history");
+    }
+  });
+
+  app.post("/api/doctor/visits", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const result = insertVisitRecordSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).send(fromZodError(result.error).toString());
+    }
+
+    try {
+      const [visit] = await db
+        .insert(visitRecords)
+        .values(result.data)
+        .returning();
+
+      res.status(201).json(visit);
+    } catch (error) {
+      console.error('Error creating visit record:', error);
+      res.status(500).send("Failed to create visit record");
+    }
+  });
+
+  app.post("/api/doctor/diagnoses", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const result = insertDiagnosisSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).send(fromZodError(result.error).toString());
+    }
+
+    try {
+      const [diagnosis] = await db
+        .insert(diagnoses)
+        .values(result.data)
+        .returning();
+
+      res.status(201).json(diagnosis);
+    } catch (error) {
+      console.error('Error creating diagnosis:', error);
+      res.status(500).send("Failed to create diagnosis");
+    }
+  });
+
+  app.post("/api/doctor/prescriptions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const result = insertPrescriptionSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).send(fromZodError(result.error).toString());
+    }
+
+    try {
+      const [prescription] = await db
+        .insert(prescriptions)
+        .values(result.data)
+        .returning();
+
+      res.status(201).json(prescription);
+    } catch (error) {
+      console.error('Error creating prescription:', error);
+      res.status(500).send("Failed to create prescription");
+    }
+  });
+
   return httpServer;
 }

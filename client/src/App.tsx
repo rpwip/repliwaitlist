@@ -11,6 +11,7 @@ import AuthPage from "./pages/auth-page";
 import QueueDisplay from "./pages/queue-display";
 import AdminDashboard from "./pages/admin-dashboard";
 import PatientPortal from "./pages/patient-portal";
+import DoctorPortal from "./pages/doctor-portal";
 import NotFound from "./pages/not-found";
 
 function Router() {
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/display" component={QueueDisplay} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/patient/:id" component={PatientPortal} />
+      <ProtectedRoute path="/doctor" component={DoctorPortal} />
       <ProtectedRoute path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
