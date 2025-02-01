@@ -19,10 +19,13 @@ export function LanguageSelector() {
   const { language, setLanguage } = useLanguage();
 
   return (
-    <div className="w-full max-w-sm">
-      <Select value={language} onValueChange={(value: any) => setLanguage(value)}>
+    <div className="w-full">
+      <label className="block text-sm font-medium mb-2 text-primary-foreground">
+        Language
+      </label>
+      <Select defaultValue="en" value={language} onValueChange={(value: any) => setLanguage(value)}>
         <SelectTrigger>
-          <SelectValue placeholder={getTranslation('languageSelector', language)} />
+          <SelectValue placeholder="Select language" />
         </SelectTrigger>
         <SelectContent>
           {languages.map((lang) => (
