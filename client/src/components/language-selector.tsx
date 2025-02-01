@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -25,7 +24,7 @@ export function LanguageSelector() {
       <label className="block text-sm font-medium mb-2 text-primary-foreground">
         Language
       </label>
-      <Select value={language} onValueChange={(value: any) => setLanguage(value)}>
+      <Select value="en" onValueChange={(value: any) => setLanguage(value)}>
         <SelectTrigger>
           <SelectValue>{currentLanguage}</SelectValue>
         </SelectTrigger>
