@@ -514,23 +514,29 @@ export function registerRoutes(app: Express): Server {
   // Doctor Portal API endpoints
   app.get("/api/doctor/patients", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const { doctorId } = req.query;
-
-    if (!doctorId) {
-      return res.status(400).send("Doctor ID is required");
-    }
 
     try {
+      // Get doctor ID from the authenticated user
+      const [doctor] = await db
+        .select()
+        .from(doctors)
+        .where(eq(doctors.userId, req.user.id))
+        .limit(1);
+
+      if (!doctor) {
+        return res.status(404).send("Doctor not found");
+      }
+
       const assignedPatients = await db
         .select({
-          patients: patients,
-          assignments: patientDoctorAssignments,
+          patient: patients,
+          assignment: patientDoctorAssignments,
         })
         .from(patientDoctorAssignments)
         .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
-        .where(eq(patientDoctorAssignments.doctorId, parseInt(doctorId as string)));
+        .where(eq(patientDoctorAssignments.doctorId, doctor.id));
 
-      res.json(assignedPatients.map(({ patients }) => patients));
+      res.json(assignedPatients.map(({ patient }) => patient));
     } catch (error) {
       console.error('Error fetching doctor\'s patients:', error);
       res.status(500).send("Failed to fetch patients");
