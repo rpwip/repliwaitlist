@@ -19,10 +19,16 @@ async function formatPhoneNumber(phone: string): Promise<string> {
   // Remove any non-digit characters
   const cleaned = phone.replace(/\D/g, '');
 
-  // Add +91 prefix if not present
-  if (!cleaned.startsWith('91')) {
+  // Handle US numbers starting with +1
+  if (cleaned.startsWith('1')) {
+    return cleaned; // Keep the 1 prefix for US numbers
+  }
+
+  // Add +91 prefix if it's an Indian number without prefix
+  if (!cleaned.startsWith('91') && cleaned.length === 10) {
     return `91${cleaned}`;
   }
+
   return cleaned;
 }
 
@@ -63,17 +69,21 @@ export async function sendSMSNotification(params: NotificationParams): Promise<b
     }
 
     console.log('SMS sent successfully to:', params.patientName);
-
-    // Update the notification status in the database
-    await db.update(queueEntries)
-      .set({ notificationSent: true })
-      .where(eq(queueEntries.queueNumber, params.queueNumber));
-
     return true;
   } catch (error) {
     console.error('SMS sending error:', error);
     return false;
   }
+}
+
+// Test function to send immediate SMS
+export async function sendTestSMS(phoneNumber: string): Promise<boolean> {
+  return sendSMSNotification({
+    to: phoneNumber,
+    patientName: "Test User",
+    queueNumber: 123,
+    estimatedTime: 20
+  });
 }
 
 export async function checkAndSendNotifications(avgWaitTime: number) {

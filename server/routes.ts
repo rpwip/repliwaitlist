@@ -11,6 +11,7 @@ import {
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 import { checkAndSendNotifications } from './services/notifications';
+import { sendTestSMS } from './services/sms';
 
 // Store pending transactions in memory (in production, use Redis or database)
 const pendingTransactions = new Map<string, { queueId: number, amount: number }>();
@@ -352,5 +353,24 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Test SMS endpoint
+  app.post("/api/test-sms", async (req, res) => {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      return res.status(400).send("Phone number is required");
+    }
+
+    try {
+      const success = await sendTestSMS(phoneNumber);
+      if (success) {
+        res.json({ message: "Test SMS sent successfully" });
+      } else {
+        res.status(500).send("Failed to send test SMS");
+      }
+    } catch (error) {
+      console.error('Test SMS error:', error);
+      res.status(500).send("Failed to send test SMS");
+    }
+  });
   return httpServer;
 }
