@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, jsonb, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
 
@@ -112,6 +112,47 @@ export const queueEntries = pgTable("queue_entries", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const pharmacies = pgTable("pharmacies", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address").notNull(),
+  contactNumber: text("contact_number").notNull(),
+  isCloudCares: boolean("is_cloud_cares").default(false),
+  deliveryAvailable: boolean("delivery_available").default(true),
+});
+
+export const medicineOrders = pgTable("medicine_orders", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id),
+  prescriptionId: integer("prescription_id").references(() => prescriptions.id),
+  pharmacyId: integer("pharmacy_id").references(() => pharmacies.id),
+  status: text("status").notNull().default("pending"), // pending, approved, ready_for_pickup, delivered
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
+  deliveryMethod: text("delivery_method"), // pickup, delivery
+  paymentStatus: text("payment_status").default("pending"), // pending, paid
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+
+export const patientPreferences = pgTable("patient_preferences", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id),
+  preferredPharmacyId: integer("preferred_pharmacy_id").references(() => pharmacies.id),
+  primaryDoctorId: integer("primary_doctor_id").references(() => doctors.id),
+    preferredClinicId: integer("preferred_clinic_id").references(() => clinics.id),
+  notificationPreferences: jsonb("notification_preferences"),
+});
+
+export const clinics = pgTable("clinics", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address").notNull(),
+  contactNumber: text("contact_number").notNull(),
+  type: text("type").notNull(), // primary, specialist, hospital
+});
+
+
 export const patientsRelations = relations(patients, ({ many }) => ({
   queueEntries: many(queueEntries),
   diagnoses: many(diagnoses),
@@ -147,6 +188,45 @@ export const appointmentsRelations = relations(appointments, ({ one, many }) => 
   payment: many(payments),
 }));
 
+export const pharmaciesRelations = relations(pharmacies, ({ many }) => ({
+  medicineOrders: many(medicineOrders),
+}));
+
+export const medicineOrdersRelations = relations(medicineOrders, ({ one }) => ({
+  patient: one(patients, {
+    fields: [medicineOrders.patientId],
+    references: [patients.id],
+  }),
+  pharmacy: one(pharmacies, {
+    fields: [medicineOrders.pharmacyId],
+    references: [pharmacies.id],
+  }),
+  prescription: one(prescriptions, {
+    fields: [medicineOrders.prescriptionId],
+    references: [prescriptions.id],
+  }),
+}));
+
+export const patientPreferencesRelations = relations(patientPreferences, ({ one }) => ({
+  patient: one(patients, {
+    fields: [patientPreferences.patientId],
+    references: [patients.id],
+  }),
+  preferredPharmacy: one(pharmacies, {
+    fields: [patientPreferences.preferredPharmacyId],
+    references: [pharmacies.id],
+  }),
+  primaryDoctor: one(doctors, {
+    fields: [patientPreferences.primaryDoctorId],
+    references: [doctors.id],
+  }),
+  preferredClinic: one(clinics, {
+    fields: [patientPreferences.preferredClinicId],
+    references: [clinics.id],
+  }),
+}));
+
+
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 
@@ -174,6 +254,18 @@ export const selectPaymentSchema = createSelectSchema(payments);
 export const insertQueueEntrySchema = createInsertSchema(queueEntries);
 export const selectQueueEntrySchema = createSelectSchema(queueEntries);
 
+export const insertPharmacySchema = createInsertSchema(pharmacies);
+export const selectPharmacySchema = createSelectSchema(pharmacies);
+
+export const insertMedicineOrderSchema = createInsertSchema(medicineOrders);
+export const selectMedicineOrderSchema = createSelectSchema(medicineOrders);
+
+export const insertPatientPreferencesSchema = createInsertSchema(patientPreferences);
+export const selectPatientPreferencesSchema = createSelectSchema(patientPreferences);
+
+export const insertClinicSchema = createInsertSchema(clinics);
+export const selectClinicSchema = createSelectSchema(clinics);
+
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 export type InsertPatient = typeof patients.$inferInsert;
@@ -192,3 +284,11 @@ export type InsertPayment = typeof payments.$inferInsert;
 export type SelectPayment = typeof payments.$inferSelect;
 export type InsertQueueEntry = typeof queueEntries.$inferInsert;
 export type SelectQueueEntry = typeof queueEntries.$inferSelect;
+export type InsertPharmacy = typeof pharmacies.$inferInsert;
+export type SelectPharmacy = typeof pharmacies.$inferSelect;
+export type InsertMedicineOrder = typeof medicineOrders.$inferInsert;
+export type SelectMedicineOrder = typeof medicineOrders.$inferSelect;
+export type InsertPatientPreferences = typeof patientPreferences.$inferInsert;
+export type SelectPatientPreferences = typeof patientPreferences.$inferSelect;
+export type InsertClinic = typeof clinics.$inferInsert;
+export type SelectClinic = typeof clinics.$inferSelect;

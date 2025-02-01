@@ -12,7 +12,10 @@ import {
   Loader2,
   Activity,
   Bell,
-  Calendar
+  Calendar,
+  ShoppingCart,
+  Building2,
+  Medal
 } from "lucide-react";
 import { useParams } from "wouter";
 import { format, parseISO, differenceInMonths } from "date-fns";
@@ -28,19 +31,50 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import type { 
-  SelectPatient, 
-  SelectAppointment, 
-  SelectPrescription, 
-  SelectDiagnosis, 
+import type {
+  SelectPatient,
+  SelectAppointment,
+  SelectPrescription,
+  SelectDiagnosis,
   SelectVisitRecord,
-  SelectQueueEntry 
+  SelectQueueEntry
 } from "@db/schema";
+
+type PatientPreferences = {
+  preferredPharmacy: {
+    name: string;
+    address: string;
+  };
+  primaryDoctor: {
+    fullName: string;
+  };
+  preferredClinic: {
+    name: string;
+    address: string;
+  };
+};
+
+type MedicineOrder = {
+  id: number;
+  prescription: {
+    medications: Medication[];
+  };
+  pharmacy: {
+    name: string;
+    address: string;
+  };
+  status: string;
+  totalCost: number;
+  deliveryMethod?: string;
+  paymentStatus: string;
+};
+
 
 type PatientResponse = SelectPatient & {
   queueEntry?: SelectQueueEntry & {
     estimatedWaitTime?: number;
   };
+  preferences?: PatientPreferences;
 };
 
 type Medication = {
@@ -90,8 +124,8 @@ export default function PatientPortal() {
       return data.map((p: any) => ({
         ...p.prescriptions,
         doctor: p.doctors,
-        medications: Array.isArray(p.prescriptions.medications) 
-          ? p.prescriptions.medications 
+        medications: Array.isArray(p.prescriptions.medications)
+          ? p.prescriptions.medications
           : JSON.parse(p.prescriptions.medications)
       }));
     }
@@ -122,6 +156,22 @@ export default function PatientPortal() {
       }));
     }
   });
+  
+  const { data: medicineOrders, isLoading: isLoadingOrders } = useQuery<MedicineOrder[]>({
+    queryKey: ["/api/patient/medicine-orders", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/patient/medicine-orders?patientId=${id}`);
+      if (!response.ok) throw new Error("Failed to fetch medicine orders");
+      return response.json();
+    }
+  });
+
+  const currentMonthCost = medicineOrders
+    ?.filter(order => order.paymentStatus === "paid")
+    .reduce((sum, order) => sum + order.totalCost, 0) || 0;
+
+  const nextMonthForecast = currentMonthCost * 0.85;
+  const potentialSavings = currentMonthCost - nextMonthForecast;
 
   const formatDate = (dateString: string | Date | null) => {
     if (!dateString) return "N/A";
@@ -144,8 +194,8 @@ export default function PatientPortal() {
     }
   };
 
-  if (isLoadingPatient || isLoadingAppointments || isLoadingPrescriptions || 
-      isLoadingDiagnoses || isLoadingVisits) {
+  if (isLoadingPatient || isLoadingAppointments || isLoadingPrescriptions ||
+    isLoadingDiagnoses || isLoadingVisits || isLoadingOrders) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -217,6 +267,14 @@ export default function PatientPortal() {
           <Clock className="mr-2 h-4 w-4" />
           Queue Status
         </Button>
+         <Button
+          variant={activeTab === "purchase-medicines" ? "secondary" : "ghost"}
+          className="justify-start"
+          onClick={() => setActiveTab("purchase-medicines")}
+        >
+          <ShoppingCart className="mr-2 h-4 w-4" />
+          Purchase Medicines
+        </Button>
         <Button
           variant={activeTab === "analytics" ? "secondary" : "ghost"}
           className="justify-start"
@@ -258,38 +316,70 @@ export default function PatientPortal() {
                 </CardContent>
               </Card>
 
-              {/* Quick Stats */}
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-2 gap-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Upcoming Appointments</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5" />
+                      Healthcare Providers
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold text-primary">
-                      {appointments?.filter(apt => new Date(apt.scheduledFor) > new Date()).length || 0}
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium">Primary Care Provider</h4>
+                        <p className="text-sm">
+                          Dr. {patientData.preferences?.primaryDoctor?.fullName || "Not assigned"}
+                        </p>
+                         <p className="text-sm text-muted-foreground">
+                          {patientData.preferences?.preferredClinic?.name || "No clinic assigned"}
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="font-medium">Preferred Pharmacy</h4>
+                         <p className="text-sm">
+                          {patientData.preferences?.preferredPharmacy?.name || "Cloud Cares Pharmacy"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {patientData.preferences?.preferredPharmacy?.address || "Default Address"}
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Active Prescriptions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-primary">
-                      {prescriptions?.filter(p => p.isActive).length || 0}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Recent Visits</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-primary">
-                      {visitHistory?.filter(v => differenceInMonths(new Date(), new Date(v.visitedAt)) < 1).length || 0}
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Quick Stats */}
+                <div className="grid md:grid-cols-3 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Upcoming Appointments</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-primary">
+                        {appointments?.filter(apt => new Date(apt.scheduledFor) > new Date()).length || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Active Prescriptions</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-primary">
+                        {prescriptions?.filter(p => p.isActive).length || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Recent Visits</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-3xl font-bold text-primary">
+                        {visitHistory?.filter(v => differenceInMonths(new Date(), new Date(v.visitedAt)) < 1).length || 0}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </div>
           )}
@@ -367,9 +457,9 @@ export default function PatientPortal() {
                       <div className="text-right">
                         <span className={`inline-block px-2 py-1 rounded-full text-xs ${
                           appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
+                            appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
                           {appointment.status}
                         </span>
                       </div>
@@ -439,8 +529,8 @@ export default function PatientPortal() {
                               <td className="p-3">
                                 <div className="space-y-1">
                                   <div className="h-2 w-24 rounded-full bg-muted">
-                                    <div 
-                                      className="h-full rounded-full bg-primary" 
+                                    <div
+                                      className="h-full rounded-full bg-primary"
                                       style={{ width: `${Math.random() * 100}%` }}
                                     />
                                   </div>
@@ -560,9 +650,9 @@ export default function PatientPortal() {
                         </div>
                         <span className={`inline-block px-2 py-1 rounded-full text-xs ${
                           diagnosis.status === 'active' ? 'bg-yellow-100 text-yellow-800' :
-                          diagnosis.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
+                            diagnosis.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
                           {diagnosis.status}
                         </span>
                       </div>
@@ -582,7 +672,7 @@ export default function PatientPortal() {
           )}
 
           {activeTab === "visits" && (
-             <Card>
+            <Card>
               <CardHeader>
                 <CardTitle>Visit History</CardTitle>
               </CardHeader>
@@ -661,6 +751,149 @@ export default function PatientPortal() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {activeTab === "purchase-medicines" && (
+            <div className="space-y-6">
+              {/* Cost Savings Dashboard */}
+              <div className="grid md:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Current Month</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-primary">
+                      ${currentMonthCost.toFixed(2)}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">Total medication costs</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Next Month Forecast</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-green-600">
+                      ${nextMonthForecast.toFixed(2)}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">Estimated with discounts</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Potential Savings</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-amber-600">
+                      ${potentialSavings.toFixed(2)}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">By using Cloud Cares Pharmacy</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Achievement Banner */}
+              <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-full bg-primary/20">
+                      <Medal className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Smart Saver Achievement Unlocked! 🎉</h3>
+                      <p className="text-sm text-muted-foreground">
+                        You've saved 15% on your medication costs this month by using Cloud Cares Pharmacy
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Pending Orders */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Medicine Orders</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-3 text-left">Medications</th>
+                          <th className="p-3 text-left">Pharmacy</th>
+                          <th className="p-3 text-left">Status</th>
+                          <th className="p-3 text-left">Total Cost</th>
+                          <th className="p-3 text-left">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {medicineOrders?.map((order) => (
+                          <tr key={order.id} className="hover:bg-muted/50">
+                            <td className="p-3">
+                              <ul className="list-disc list-inside text-sm">
+                                {order.prescription.medications.map((med, idx) => (
+                                  <li key={idx}>{med.name} - {med.dosage}</li>
+                                ))}
+                              </ul>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-medium">{order.pharmacy.name}</p>
+                              <p className="text-sm text-muted-foreground">{order.pharmacy.address}</p>
+                            </td>
+                            <td className="p-3">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                                order.status === 'ready_for_pickup' ? 'bg-green-100 text-green-800' :
+                                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-blue-100 text-blue-800'
+                                }`}>
+                                {order.status.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-medium">${order.totalCost.toFixed(2)}</p>
+                              <p className="text-xs text-green-600">Save 15% with Cloud Cares</p>
+                            </td>
+                            <td className="p-3">
+                              <Button
+                                size="sm"
+                                variant={order.paymentStatus === 'pending' ? 'default' : 'outline'}
+                              >
+                                {order.paymentStatus === 'pending' ? 'Pay Now' : 'View Details'}
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Delivery Preferences */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Delivery Preferences</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-lg border hover:bg-muted/50 cursor-pointer">
+                      <h4 className="font-medium mb-2">Pickup from Pharmacy</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Pick up your medications at your convenience from your chosen pharmacy location
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg border hover:bg-muted/50 cursor-pointer">
+                      <h4 className="font-medium mb-2">Home Delivery</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Get your medications delivered directly to your doorstep
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </div>

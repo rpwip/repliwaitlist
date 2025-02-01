@@ -6,7 +6,8 @@ import { db } from "@db";
 import { 
   patients, queueEntries, insertPatientSchema,
   appointments, prescriptions, diagnoses, visitRecords,
-  doctors, patientDoctorAssignments
+  doctors, patientDoctorAssignments, patientPreferences, pharmacies, clinics,
+  medicineOrders
 } from "@db/schema";
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
@@ -194,6 +195,82 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Visit records fetch error:', error);
       res.status(500).send("Failed to fetch visit records");
+    }
+  });
+
+  // Get patient preferences
+  app.get("/api/patient/preferences", async (req, res) => {
+    const { patientId } = req.query;
+    if (!patientId) {
+      return res.status(400).send("Patient ID is required");
+    }
+
+    try {
+      const [preferences] = await db
+        .select({
+          patientPreferences: patientPreferences,
+          pharmacy: pharmacies,
+          doctor: doctors,
+          clinic: clinics,
+        })
+        .from(patientPreferences)
+        .leftJoin(pharmacies, eq(patientPreferences.preferredPharmacyId, pharmacies.id))
+        .leftJoin(doctors, eq(patientPreferences.primaryDoctorId, doctors.id))
+        .leftJoin(clinics, eq(patientPreferences.preferredClinicId, clinics.id))
+        .where(eq(patientPreferences.patientId, parseInt(patientId as string)));
+
+      res.json(preferences);
+    } catch (error) {
+      console.error('Preferences fetch error:', error);
+      res.status(500).send("Failed to fetch patient preferences");
+    }
+  });
+
+  // Get medicine orders
+  app.get("/api/patient/medicine-orders", async (req, res) => {
+    const { patientId } = req.query;
+    if (!patientId) {
+      return res.status(400).send("Patient ID is required");
+    }
+
+    try {
+      const orders = await db
+        .select({
+          medicineOrders: medicineOrders,
+          pharmacy: pharmacies,
+          prescription: prescriptions,
+        })
+        .from(medicineOrders)
+        .innerJoin(pharmacies, eq(medicineOrders.pharmacyId, pharmacies.id))
+        .innerJoin(prescriptions, eq(medicineOrders.prescriptionId, prescriptions.id))
+        .where(eq(medicineOrders.patientId, parseInt(patientId as string)))
+        .orderBy(desc(medicineOrders.createdAt));
+
+      res.json(orders);
+    } catch (error) {
+      console.error('Medicine orders fetch error:', error);
+      res.status(500).send("Failed to fetch medicine orders");
+    }
+  });
+
+  // Update delivery preferences
+  app.post("/api/patient/delivery-preferences", async (req, res) => {
+    const { patientId, deliveryMethod } = req.body;
+    if (!patientId || !deliveryMethod) {
+      return res.status(400).send("Patient ID and delivery method are required");
+    }
+
+    try {
+      const [updated] = await db
+        .update(medicineOrders)
+        .set({ deliveryMethod })
+        .where(eq(medicineOrders.patientId, patientId))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error('Delivery preferences update error:', error);
+      res.status(500).send("Failed to update delivery preferences");
     }
   });
 
