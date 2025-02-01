@@ -107,6 +107,7 @@ export const queueEntries = pgTable("queue_entries", {
   priority: integer("priority").default(0),
   status: text("status").notNull().default("waiting"),
   isPaid: boolean("is_paid").default(false),
+  notificationSent: boolean("notification_sent").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

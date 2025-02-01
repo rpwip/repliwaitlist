@@ -10,6 +10,7 @@ import {
 } from "@db/schema";
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
+import { checkAndSendNotifications } from './services/notifications';
 
 // Store pending transactions in memory (in production, use Redis or database)
 const pendingTransactions = new Map<string, { queueId: number, amount: number }>();
@@ -303,7 +304,7 @@ export function registerRoutes(app: Express): Server {
             )
           )
         )
-        .orderBy(queueEntries.queueNumber); // Order by queue number instead of creation time
+        .orderBy(queueEntries.queueNumber);
 
       // Calculate estimated wait time for each patient
       const queueWithWaitTimes = entries.map((entry, index) => ({
@@ -311,13 +312,15 @@ export function registerRoutes(app: Express): Server {
         estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
       }));
 
+      // Check and send notifications if needed
+      await checkAndSendNotifications(avgWaitTime);
+
       res.json(queueWithWaitTimes);
     } catch (error) {
       console.error('Queue fetch error:', error);
       res.status(500).send("Failed to fetch queue");
     }
   });
-
 
   // Protected endpoints
   app.post("/api/queue/:queueId/status", async (req, res) => {
