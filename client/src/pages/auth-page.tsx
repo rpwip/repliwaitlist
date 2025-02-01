@@ -29,27 +29,20 @@ const loginFormSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-// Create a registration schema that matches the database schema
+// Create a registration schema that matches both user and doctor requirements
 const registrationSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
   fullName: z.string().min(1, "Full name is required"),
   specialization: z.string().min(1, "Specialization is required"),
   qualifications: z.string().min(1, "Qualifications are required"),
   contactNumber: z.string().min(1, "Contact number is required"),
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
-  isAdmin: z.boolean().optional()
 });
 
 export default function AuthPage() {
   const { loginMutation, registerDoctorMutation } = useAuth();
   const [, setLocation] = useLocation();
   const [isRegistering, setIsRegistering] = useState(false);
-
-  // Fetch available clinics for registration
-  const { data: clinics = [] } = useQuery({
-    queryKey: ["/api/clinics"],
-    enabled: isRegistering,
-  });
 
   const loginForm = useForm({
     resolver: zodResolver(loginFormSchema),
@@ -62,13 +55,12 @@ export default function AuthPage() {
   const registrationForm = useForm({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
+      username: "",
+      password: "",
       fullName: "",
       specialization: "",
       qualifications: "",
       contactNumber: "",
-      username: "",
-      password: "",
-      isAdmin: false,
     },
   });
 
@@ -83,7 +75,10 @@ export default function AuthPage() {
 
   const onRegister = async (data: z.infer<typeof registrationSchema>) => {
     try {
-      await registerDoctorMutation.mutateAsync(data);
+      await registerDoctorMutation.mutateAsync({
+        ...data,
+        isAdmin: false,
+      });
       setLocation("/doctor");
     } catch (error) {
       console.error(error);
