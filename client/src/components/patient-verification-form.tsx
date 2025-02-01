@@ -12,14 +12,28 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Card } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { insertPatientSchema } from "@db/schema";
 import PaymentQR from "./payment-qr";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
+
+type PatientData = {
+  id: number;
+  fullName: string;
+  email: string | null;
+  mobile: string;
+};
 
 export default function PatientVerificationForm() {
   const { registerPatient } = useQueue();
@@ -28,7 +42,8 @@ export default function PatientVerificationForm() {
   const { language } = useLanguage();
   const [registrationData, setRegistrationData] = useState<any>(null);
   const [isNewPatient, setIsNewPatient] = useState(false);
-  const [verifiedPatient, setVerifiedPatient] = useState<any>(null);
+  const [foundPatients, setFoundPatients] = useState<PatientData[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
 
   const form = useForm({
     resolver: zodResolver(insertPatientSchema),
@@ -47,11 +62,21 @@ export default function PatientVerificationForm() {
 
   const handleVerification = async (data: { mobile: string }) => {
     try {
-      const patient = await verifyPatient({ mobile: data.mobile });
-      setVerifiedPatient(patient);
+      const response = await verifyPatient({ mobile: data.mobile });
+      if (Array.isArray(response)) {
+        setFoundPatients(response);
+        if (response.length === 1) {
+          setSelectedPatient(response[0]);
+        }
+      } else {
+        setSelectedPatient(response);
+      }
+
       toast({
-        title: "Patient found",
-        description: "Proceeding to payment...",
+        title: "Patient(s) found",
+        description: response.length > 1 
+          ? "Please select a patient to proceed" 
+          : "Proceeding to payment...",
       });
     } catch (error) {
       setIsNewPatient(true);
@@ -77,14 +102,48 @@ export default function PatientVerificationForm() {
     }
   };
 
-  if (registrationData?.queueEntry || verifiedPatient) {
+  if (registrationData?.queueEntry || (selectedPatient && !foundPatients.length)) {
     return (
       <Card className="p-6">
         <PaymentQR
           queueId={
-            registrationData?.queueEntry?.id || verifiedPatient?.queueEntry?.id
+            registrationData?.queueEntry?.id || selectedPatient?.queueEntry?.id
           }
         />
+      </Card>
+    );
+  }
+
+  if (foundPatients.length > 0) {
+    return (
+      <Card className="p-6">
+        <CardContent className="space-y-4">
+          <h3 className="text-lg font-semibold">Select Patient</h3>
+          <p className="text-sm text-muted-foreground">
+            Multiple patients found with this mobile number. Please select the patient:
+          </p>
+          <Select 
+            value={selectedPatient?.id.toString()} 
+            onValueChange={(value) => {
+              const patient = foundPatients.find(p => p.id.toString() === value);
+              if (patient) {
+                setSelectedPatient(patient);
+                setFoundPatients([]);
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a patient" />
+            </SelectTrigger>
+            <SelectContent>
+              {foundPatients.map((patient) => (
+                <SelectItem key={patient.id} value={patient.id.toString()}>
+                  {patient.fullName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
       </Card>
     );
   }
@@ -161,7 +220,7 @@ export default function PatientVerificationForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel className="flex items-baseline gap-2">
-                <span>Email</span>
+                <span>Email (Optional)</span>
                 {language !== "en" && (
                   <span className="text-muted-foreground">
                     ({getTranslation("email", language)})
@@ -176,6 +235,9 @@ export default function PatientVerificationForm() {
                 />
               </FormControl>
               <FormMessage />
+              <p className="text-xs text-muted-foreground">
+                Email is required to access the patient portal later
+              </p>
             </FormItem>
           )}
         />

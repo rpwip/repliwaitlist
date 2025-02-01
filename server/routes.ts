@@ -26,19 +26,20 @@ export function registerRoutes(app: Express): Server {
     if (!mobile) {
       return res.status(400).send("Mobile number is required");
     }
-
+  
     try {
-      const [patient] = await db
+      const results = await db
         .select()
         .from(patients)
-        .where(eq(patients.mobile, mobile as string))
-        .limit(1);
-
-      if (!patient) {
+        .where(eq(patients.mobile, mobile as string));
+  
+      if (results.length === 0) {
         return res.status(404).send("Patient not found");
       }
-
-      res.json(patient);
+  
+      // If there's only one patient, return it as an object
+      // If there are multiple patients, return them as an array
+      res.json(results);
     } catch (error) {
       console.error('Profile fetch error:', error);
       res.status(500).send("Failed to fetch patient profile");
