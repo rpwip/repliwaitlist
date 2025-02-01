@@ -47,24 +47,62 @@ export function registerRoutes(app: Express): Server {
 
   // Patient Portal API endpoints
   app.get("/api/patient/profile", async (req, res) => {
-    const { mobile } = req.query;
-    if (!mobile) {
-      return res.status(400).send("Mobile number is required");
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).send("Patient ID is required");
     }
-  
+
     try {
-      const results = await db
+      const [patient] = await db
         .select()
         .from(patients)
-        .where(eq(patients.mobile, mobile as string));
-  
-      if (results.length === 0) {
+        .where(eq(patients.id, parseInt(id as string)))
+        .limit(1);
+
+      if (!patient) {
         return res.status(404).send("Patient not found");
       }
-  
-      // If there's only one patient, return it as an object
-      // If there are multiple patients, return them as an array
-      res.json(results);
+
+      // Get queue entry if exists
+      const [queueEntry] = await db
+        .select()
+        .from(queueEntries)
+        .where(
+          and(
+            eq(queueEntries.patientId, patient.id),
+            or(
+              eq(queueEntries.status, "waiting"),
+              eq(queueEntries.status, "in-progress")
+            )
+          )
+        )
+        .limit(1);
+
+      // Calculate estimated wait time if in queue
+      let patientResponse = patient;
+      if (queueEntry) {
+        const avgWaitTime = await calculateAverageWaitTime();
+        const [queuePosition] = await db
+          .select({
+            position: sql<number>`
+              COUNT(*) 
+              FROM queue_entries 
+              WHERE queue_number <= ${queueEntry.queueNumber}
+              AND status = 'waiting'
+            `
+          })
+          .from(queueEntries);
+
+        patientResponse = {
+          ...patient,
+          queueEntry: {
+            ...queueEntry,
+            estimatedWaitTime: Math.ceil(avgWaitTime * (queuePosition?.position || 1))
+          }
+        };
+      }
+
+      res.json(patientResponse);
     } catch (error) {
       console.error('Profile fetch error:', error);
       res.status(500).send("Failed to fetch patient profile");

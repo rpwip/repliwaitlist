@@ -24,7 +24,9 @@ import type {
 } from "@db/schema";
 
 type PatientResponse = SelectPatient & {
-  queueEntry?: SelectQueueEntry;
+  queueEntry?: SelectQueueEntry & {
+    estimatedWaitTime?: number;
+  };
 };
 
 type Medication = {
@@ -39,22 +41,47 @@ export default function PatientPortal() {
 
   const { data: patientData, isLoading: isLoadingPatient } = useQuery<PatientResponse>({
     queryKey: ["/api/patient/profile", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/patient/profile?id=${id}`);
+      if (!response.ok) throw new Error("Failed to fetch patient data");
+      return response.json();
+    }
   });
 
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery<SelectAppointment[]>({
     queryKey: ["/api/patient/appointments", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/patient/appointments?patientId=${id}`);
+      if (!response.ok) throw new Error("Failed to fetch appointments");
+      return response.json();
+    }
   });
 
   const { data: prescriptions, isLoading: isLoadingPrescriptions } = useQuery<SelectPrescription[]>({
     queryKey: ["/api/patient/prescriptions", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/patient/prescriptions?patientId=${id}`);
+      if (!response.ok) throw new Error("Failed to fetch prescriptions");
+      return response.json();
+    }
   });
 
   const { data: diagnoses, isLoading: isLoadingDiagnoses } = useQuery<SelectDiagnosis[]>({
     queryKey: ["/api/patient/diagnoses", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/patient/diagnoses?patientId=${id}`);
+      if (!response.ok) throw new Error("Failed to fetch diagnoses");
+      return response.json();
+    }
   });
 
   const { data: visitHistory, isLoading: isLoadingVisits } = useQuery<SelectVisitRecord[]>({
     queryKey: ["/api/patient/visits", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/patient/visits?patientId=${id}`);
+      if (!response.ok) throw new Error("Failed to fetch visits");
+      return response.json();
+    }
   });
 
   if (isLoadingPatient || isLoadingAppointments || isLoadingPrescriptions || 
@@ -76,12 +103,22 @@ export default function PatientPortal() {
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A";
-    return format(parseISO(dateString), "PPP");
+    try {
+      return format(parseISO(dateString), "PPP");
+    } catch (error) {
+      console.error('Date parsing error:', error);
+      return "Invalid date";
+    }
   };
 
   const formatDateTime = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A";
-    return format(parseISO(dateString), "PPP p");
+    try {
+      return format(parseISO(dateString), "PPP p");
+    } catch (error) {
+      console.error('Date parsing error:', error);
+      return "Invalid date";
+    }
   };
 
   return (
