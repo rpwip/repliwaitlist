@@ -20,6 +20,10 @@ import {
   ArrowDownRight,
   Box,
   BadgeCheck,
+  MapPin,
+  Phone,
+  Mail,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -67,6 +71,26 @@ type DoctorDashboardData = {
   };
 };
 
+type DoctorClinicData = {
+  clinic: SelectClinic;
+  assignment: SelectDoctorClinicAssignment;
+  patientCount: number;
+  recentPatients: {
+    id: number;
+    fullName: string;
+    lastVisit: string;
+  }[];
+};
+
+type DoctorPatientData = {
+  patient: SelectPatient;
+  assignedAt: string;
+  clinic: SelectClinic;
+  lastVisit: string;
+  totalVisits: number;
+};
+
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function DoctorPortal() {
@@ -74,7 +98,7 @@ export default function DoctorPortal() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [brandsSearchTerm, setBrandsSearchTerm] = useState("");
-  const [view, setView] = useState<"overview" | "patients" | "prescriptions">("overview");
+  const [view, setView] = useState<"overview" | "patients" | "prescriptions" | "clinics">("overview");
 
   useEffect(() => {
     if (!user) {
@@ -114,6 +138,30 @@ export default function DoctorPortal() {
       return response.json();
     },
     enabled: view === "prescriptions",
+  });
+
+    const { data: clinicsData } = useQuery<DoctorClinicData[]>({
+    queryKey: ["/api/doctor/clinics", user?.id],
+    queryFn: async () => {
+      const response = await fetch("/api/doctor/clinics", {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch clinics");
+      return response.json();
+    },
+    enabled: view === "clinics" && !!user?.id,
+  });
+
+  const { data: patientsData } = useQuery<DoctorPatientData[]>({
+    queryKey: ["/api/doctor/patients", user?.id],
+    queryFn: async () => {
+      const response = await fetch("/api/doctor/patients", {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch patients");
+      return response.json();
+    },
+    enabled: view === "patients" && !!user?.id,
   });
 
   if (isLoading) {
@@ -411,6 +459,141 @@ export default function DoctorPortal() {
       </Card>
     </div>
   );
+    const renderClinics = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {clinicsData?.map((data) => (
+          <Card key={data.clinic.id} className="hover:bg-accent/50 transition-colors">
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{data.clinic.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {data.patientCount} patients
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.address}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.contactNumber}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.email}</span>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-2">Recent Patients</h4>
+                <div className="space-y-2">
+                  {data.recentPatients?.slice(0, 3).map((patient) => (
+                    <div key={patient.id} className="flex items-center justify-between text-sm">
+                      <span>{patient.fullName}</span>
+                      <span className="text-muted-foreground">
+                        {format(new Date(patient.lastVisit), 'MMM d')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" className="w-full">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Schedule
+                </Button>
+                <Button variant="outline" size="sm" className="w-full">
+                  <UserRound className="h-4 w-4 mr-2" />
+                  Patients
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+    const renderPatients = () => (
+    <div className="space-y-6">
+      {/* Search Box */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search patients..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Patients Grid */}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {patientsData?.filter(data => 
+          data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+        ).map((data) => (
+          <Card key={data.patient.id} className="hover:bg-accent/50 transition-colors">
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserRound className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{data.patient.fullName}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {data.totalVisits} total visits
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Last Visit:</span>
+                  <span className="font-medium">
+                    {data.lastVisit ? format(new Date(data.lastVisit), 'PPP') : 'No visits yet'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Clinic:</span>
+                  <span className="font-medium">{data.clinic?.name || 'Not assigned'}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Assigned:</span>
+                  <span className="font-medium">
+                    {format(new Date(data.assignedAt), 'PP')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" className="w-full">
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  Records
+                </Button>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Schedule
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -448,6 +631,14 @@ export default function DoctorPortal() {
                   >
                     <Users className="h-4 w-4 mr-2" />
                     Patients
+                  </Button>
+                  <Button
+                    variant={view === "clinics" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("clinics")}
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Clinics
                   </Button>
                   <Button
                     variant={view === "prescriptions" ? "default" : "ghost"}
@@ -541,6 +732,8 @@ export default function DoctorPortal() {
           <div className="md:col-span-9">
             {view === "overview" && renderOverview()}
             {view === "prescriptions" && renderPrescriptions()}
+            {view === "clinics" && renderClinics()}
+            {view === "patients" && renderPatients()}
           </div>
         </div>
       </div>

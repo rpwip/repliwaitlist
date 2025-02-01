@@ -513,11 +513,10 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Doctor Portal API endpoints
-  app.get("/api/doctor/patients", async (req, res) => {
+  app.get("/api/doctor/clinics", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     try {
-      // Get doctor ID from the authenticated user
       const [doctor] = await db
         .select()
         .from(doctors)
@@ -528,18 +527,94 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Doctor not found");
       }
 
-      const assignedPatients = await db
+      const clinicAssignments = await db
+        .select({
+          clinic: clinics,
+          assignment: doctorClinicAssignments,
+          patientCount: sql<number>`
+            COUNT(DISTINCT patient_doctor_assignments.patient_id)
+          `.as('patient_count'),
+          recentPatients: sql<any[]>`
+            json_agg(
+              json_build_object(
+                'id', patients.id,
+                'fullName', patients.full_name,
+                'lastVisit', patient_doctor_assignments.assigned_at
+              )
+              ORDER BY patient_doctor_assignments.assigned_at DESC
+              LIMIT 5
+            )
+          `.as('recent_patients')
+        })
+        .from(doctorClinicAssignments)
+        .innerJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
+        .leftJoin(
+          patientDoctorAssignments,
+          eq(patientDoctorAssignments.doctorId, doctorClinicAssignments.doctorId)
+        )
+        .leftJoin(
+          patients,
+          eq(patientDoctorAssignments.patientId, patients.id)
+        )
+        .where(
+          and(
+            eq(doctorClinicAssignments.doctorId, doctor.id),
+            eq(doctorClinicAssignments.isActive, true)
+          )
+        )
+        .groupBy(
+          doctorClinicAssignments.id,
+          clinics.id
+        );
+
+      res.json(clinicAssignments);
+    } catch (error) {
+      console.error('Error fetching clinic data:', error);
+      res.status(500).send("Failed to fetch clinic data");
+    }
+  });
+
+  app.get("/api/doctor/patients", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const [doctor] = await db
+        .select()
+        .from(doctors)
+        .where(eq(doctors.userId, req.user.id))
+        .limit(1);
+
+      if (!doctor) {
+        return res.status(404).send("Doctor not found");
+      }
+
+      const patients = await db
         .select({
           patient: patients,
-          assignment: patientDoctorAssignments,
+          assignedAt: patientDoctorAssignments.assignedAt,
+          clinic: clinics,
+          lastVisit: sql<Date>`
+            MAX(visit_records.visited_at)
+          `.as('last_visit'),
+          totalVisits: sql<number>`
+            COUNT(visit_records.id)
+          `.as('total_visits')
         })
         .from(patientDoctorAssignments)
         .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
-        .where(eq(patientDoctorAssignments.doctorId, doctor.id));
+        .leftJoin(clinics, eq(patientDoctorAssignments.clinicId, clinics.id))
+        .leftJoin(visitRecords, eq(visitRecords.patientId, patients.id))
+        .where(eq(patientDoctorAssignments.doctorId, doctor.id))
+        .groupBy(
+          patients.id,
+          patientDoctorAssignments.assignedAt,
+          clinics.id
+        )
+        .orderBy(desc(sql<Date>`MAX(visit_records.visited_at)`));
 
-      res.json(assignedPatients.map(({ patient }) => patient));
+      res.json(patients);
     } catch (error) {
-      console.error('Error fetching doctor\'s patients:', error);
+      console.error('Error fetching patients:', error);
       res.status(500).send("Failed to fetch patients");
     }
   });
