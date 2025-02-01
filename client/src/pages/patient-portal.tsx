@@ -753,6 +753,7 @@ export default function PatientPortal() {
             </Card>
           )}
 
+          {/* Purchase Medicines Section */}
           {activeTab === "purchase-medicines" && (
             <div className="space-y-6">
               {/* Cost Savings Dashboard */}
@@ -763,7 +764,7 @@ export default function PatientPortal() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-primary">
-                      ${currentMonthCost.toFixed(2)}
+                      ${currentMonthCost?.toFixed(2) || '0.00'}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">Total medication costs</p>
                   </CardContent>
@@ -775,7 +776,7 @@ export default function PatientPortal() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-green-600">
-                      ${nextMonthForecast.toFixed(2)}
+                      ${nextMonthForecast?.toFixed(2) || '0.00'}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">Estimated with discounts</p>
                   </CardContent>
@@ -787,7 +788,7 @@ export default function PatientPortal() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-amber-600">
-                      ${potentialSavings.toFixed(2)}
+                      ${potentialSavings?.toFixed(2) || '0.00'}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">By using Cloud Cares Pharmacy</p>
                   </CardContent>
@@ -829,42 +830,53 @@ export default function PatientPortal() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {medicineOrders?.map((order) => (
-                          <tr key={order.id} className="hover:bg-muted/50">
-                            <td className="p-3">
-                              <ul className="list-disc list-inside text-sm">
-                                {order.prescription.medications.map((med, idx) => (
-                                  <li key={idx}>{med.name} - {med.dosage}</li>
-                                ))}
-                              </ul>
-                            </td>
-                            <td className="p-3">
-                              <p className="font-medium">{order.pharmacy.name}</p>
-                              <p className="text-sm text-muted-foreground">{order.pharmacy.address}</p>
-                            </td>
-                            <td className="p-3">
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
-                                order.status === 'ready_for_pickup' ? 'bg-green-100 text-green-800' :
-                                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                  'bg-blue-100 text-blue-800'
+                        {medicineOrders && medicineOrders.length > 0 ? (
+                          medicineOrders.map((order) => (
+                            <tr key={order.id} className="hover:bg-muted/50">
+                              <td className="p-3">
+                                <ul className="list-disc list-inside text-sm">
+                                  {order.prescription?.medications?.map((med: Medication, idx: number) => (
+                                    <li key={idx}>{med.name} - {med.dosage}</li>
+                                  )) || (
+                                    <li>No medications listed</li>
+                                  )}
+                                </ul>
+                              </td>
+                              <td className="p-3">
+                                <p className="font-medium">{order.pharmacy?.name || 'Unknown Pharmacy'}</p>
+                                <p className="text-sm text-muted-foreground">{order.pharmacy?.address || 'No address available'}</p>
+                              </td>
+                              <td className="p-3">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                                  order.status === 'ready_for_pickup' ? 'bg-green-100 text-green-800' :
+                                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-blue-100 text-blue-800'
                                 }`}>
-                                {order.status.replace('_', ' ')}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <p className="font-medium">${order.totalCost.toFixed(2)}</p>
-                              <p className="text-xs text-green-600">Save 15% with Cloud Cares</p>
-                            </td>
-                            <td className="p-3">
-                              <Button
-                                size="sm"
-                                variant={order.paymentStatus === 'pending' ? 'default' : 'outline'}
-                              >
-                                {order.paymentStatus === 'pending' ? 'Pay Now' : 'View Details'}
-                              </Button>
+                                  {(order.status || '').replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <p className="font-medium">${order.totalCost?.toFixed(2) || '0.00'}</p>
+                                <p className="text-xs text-green-600">Save 15% with Cloud Cares</p>
+                              </td>
+                              <td className="p-3">
+                                <Button
+                                  size="sm"
+                                  variant={order.paymentStatus === 'pending' ? 'default' : 'outline'}
+                                >
+                                  {order.paymentStatus === 'pending' ? 'Pay Now' : 'View Details'}
+                                </Button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                              <ShoppingCart className="h-8 w-8 mx-auto mb-2" />
+                              No pending medicine orders
                             </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>
