@@ -51,11 +51,19 @@ export function useQueue() {
     },
   });
 
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async (queueId: number, transactionRef: string) => {
+      const res = await apiRequest("GET", `/api/verify-payment/${queueId}/${transactionRef}`);
+      return res.json();
+    },
+  });
+
   return {
     queue: queueQuery.data ?? [],
     isLoading: queueQuery.isLoading,
     updateStatus: updateStatusMutation.mutate,
     registerPatient: registerPatientMutation.mutateAsync,
     confirmPayment: confirmPaymentMutation.mutate,
+    verifyPayment: verifyPaymentMutation.mutateAsync,
   };
 }

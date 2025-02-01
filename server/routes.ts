@@ -7,6 +7,9 @@ import { patients, queueEntries, insertPatientSchema } from "@db/schema";
 import { desc, eq, and } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 
+// Store pending transactions in memory (in production, use Redis or database)
+const pendingTransactions = new Map<string, { queueId: number, amount: number }>();
+
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
@@ -43,6 +46,64 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Registration error:', error);
       res.status(500).send("Failed to register patient");
+    }
+  });
+
+  // UPI Payment webhook endpoint (this would be called by your UPI payment provider)
+  app.post("/api/upi-webhook", async (req, res) => {
+    try {
+      const { transactionRef, status, amount } = req.body;
+
+      // Verify the webhook signature (implement based on your payment provider)
+      // verifyWebhookSignature(req);
+
+      const pendingTxn = pendingTransactions.get(transactionRef);
+      if (!pendingTxn) {
+        return res.status(404).send("Transaction not found");
+      }
+
+      if (status === "SUCCESS" && amount === pendingTxn.amount) {
+        const [entry] = await db
+          .update(queueEntries)
+          .set({ isPaid: true })
+          .where(eq(queueEntries.id, pendingTxn.queueId))
+          .returning();
+
+        if (entry) {
+          pendingTransactions.delete(transactionRef);
+          wss.broadcast({ type: "QUEUE_UPDATE" });
+        }
+      }
+
+      res.sendStatus(200);
+    } catch (error) {
+      console.error('UPI webhook error:', error);
+      res.status(500).send("Failed to process UPI webhook");
+    }
+  });
+
+  // Check payment status
+  app.get("/api/verify-payment/:queueId/:transactionRef", async (req, res) => {
+    try {
+      const { queueId, transactionRef } = req.params;
+
+      // In production, make an API call to your UPI provider to check status
+      // const status = await checkUPITransactionStatus(transactionRef);
+
+      const [entry] = await db
+        .select()
+        .from(queueEntries)
+        .where(eq(queueEntries.id, parseInt(queueId)))
+        .limit(1);
+
+      if (!entry) {
+        return res.status(404).send("Queue entry not found");
+      }
+
+      res.json({ verified: entry.isPaid });
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      res.status(500).send("Failed to verify payment");
     }
   });
 
