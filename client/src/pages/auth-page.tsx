@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLocation } from "wouter";
-import { Github } from "lucide-react";
 import { z } from "zod";
 
 const loginFormSchema = z.object({
@@ -37,12 +36,15 @@ const registrationSchema = z.object({
   contactNumber: z.string().min(1, "Contact number is required"),
 });
 
+type LoginFormValues = z.infer<typeof loginFormSchema>;
+type RegistrationFormValues = z.infer<typeof registrationSchema>;
+
 export default function AuthPage() {
   const { loginMutation, registerDoctorMutation } = useAuth();
   const [, setLocation] = useLocation();
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const loginForm = useForm({
+  const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
       username: "",
@@ -50,7 +52,7 @@ export default function AuthPage() {
     },
   });
 
-  const registrationForm = useForm({
+  const registrationForm = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       username: "",
@@ -60,9 +62,19 @@ export default function AuthPage() {
       qualifications: "",
       contactNumber: "",
     },
+    mode: "onChange",
   });
 
-  const onLogin = async (data: z.infer<typeof loginFormSchema>) => {
+  // Debug logging for form state
+  useEffect(() => {
+    const subscription = registrationForm.watch((value) => {
+      console.log("Form values:", value);
+      console.log("Form errors:", registrationForm.formState.errors);
+    });
+    return () => subscription.unsubscribe();
+  }, [registrationForm]);
+
+  const onLogin = async (data: LoginFormValues) => {
     try {
       await loginMutation.mutateAsync(data);
       setLocation("/doctor");
@@ -71,8 +83,8 @@ export default function AuthPage() {
     }
   };
 
-  const onRegister = async (data: z.infer<typeof registrationSchema>) => {
-    console.log("Form data:", data);
+  const onRegister = async (data: RegistrationFormValues) => {
+    console.log("Submitting registration with data:", data);
     try {
       await registerDoctorMutation.mutateAsync({
         ...data,
@@ -201,20 +213,24 @@ export default function AuthPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Specialization</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
+                        <FormControl>
+                          <Select 
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            defaultValue={field.value}
+                          >
                             <SelectTrigger>
                               <SelectValue placeholder="Select your specialization" />
                             </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="general">General Medicine</SelectItem>
-                            <SelectItem value="pediatrics">Pediatrics</SelectItem>
-                            <SelectItem value="cardiology">Cardiology</SelectItem>
-                            <SelectItem value="dermatology">Dermatology</SelectItem>
-                            <SelectItem value="orthopedics">Orthopedics</SelectItem>
-                          </SelectContent>
-                        </Select>
+                            <SelectContent>
+                              <SelectItem value="general">General Medicine</SelectItem>
+                              <SelectItem value="pediatrics">Pediatrics</SelectItem>
+                              <SelectItem value="cardiology">Cardiology</SelectItem>
+                              <SelectItem value="dermatology">Dermatology</SelectItem>
+                              <SelectItem value="orthopedics">Orthopedics</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
