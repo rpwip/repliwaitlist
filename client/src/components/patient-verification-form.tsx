@@ -12,16 +12,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "./ui/card";
-import { Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Loader2, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { insertPatientSchema } from "@db/schema";
 import PaymentQR from "./payment-qr";
@@ -65,17 +58,14 @@ export default function PatientVerificationForm() {
       const response = await verifyPatient({ mobile: data.mobile });
       if (Array.isArray(response)) {
         setFoundPatients(response);
-        if (response.length === 1) {
-          setSelectedPatient(response[0]);
-        }
       } else {
         setSelectedPatient(response);
       }
 
       toast({
         title: "Patient(s) found",
-        description: response.length > 1 
-          ? "Please select a patient to proceed" 
+        description: Array.isArray(response) && response.length > 1
+          ? "Please select a patient to proceed"
           : "Proceeding to payment...",
       });
     } catch (error) {
@@ -116,33 +106,37 @@ export default function PatientVerificationForm() {
 
   if (foundPatients.length > 0) {
     return (
-      <Card className="p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold">
+            Select Patient
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-4">
-          <h3 className="text-lg font-semibold">Select Patient</h3>
           <p className="text-sm text-muted-foreground">
             Multiple patients found with this mobile number. Please select the patient:
           </p>
-          <Select 
-            value={selectedPatient?.id.toString()} 
-            onValueChange={(value) => {
-              const patient = foundPatients.find(p => p.id.toString() === value);
-              if (patient) {
-                setSelectedPatient(patient);
-                setFoundPatients([]);
-              }
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a patient" />
-            </SelectTrigger>
-            <SelectContent>
-              {foundPatients.map((patient) => (
-                <SelectItem key={patient.id} value={patient.id.toString()}>
-                  {patient.fullName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid gap-3">
+            {foundPatients.map((patient) => (
+              <Button
+                key={patient.id}
+                variant="outline"
+                className="w-full justify-start h-auto py-4 px-4"
+                onClick={() => {
+                  setSelectedPatient(patient);
+                  setFoundPatients([]);
+                }}
+              >
+                <User className="mr-2 h-4 w-4" />
+                <div className="text-left">
+                  <div className="font-medium">{patient.fullName}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {patient.email || 'No email provided'}
+                  </div>
+                </div>
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
     );

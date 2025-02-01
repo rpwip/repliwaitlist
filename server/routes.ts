@@ -8,11 +8,34 @@ import {
   appointments, prescriptions, diagnoses, visitRecords,
   doctors, patientDoctorAssignments
 } from "@db/schema";
-import { desc, eq, and, gt } from "drizzle-orm";
+import { desc, eq, and, gt, sql } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 
 // Store pending transactions in memory (in production, use Redis or database)
 const pendingTransactions = new Map<string, { queueId: number, amount: number }>();
+
+// Calculate average consultation time (in minutes) for the day
+async function calculateAverageWaitTime(): Promise<number> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  try {
+    const [result] = await db
+      .select({
+        avgTime: sql<number>`
+          avg(extract(epoch from (updated_at - created_at)) / 60)
+          filter (where status = 'completed' and created_at >= ${today})
+        `.as('avg_time')
+      })
+      .from(queueEntries);
+
+    // Return average time or minimum 10 minutes
+    return Math.max(result?.avgTime || 10, 10);
+  } catch (error) {
+    console.error('Error calculating average wait time:', error);
+    return 10; // Default to 10 minutes on error
+  }
+}
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -247,14 +270,17 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get queue status with wait times
   app.get("/api/queue", async (_req, res) => {
     try {
+      const avgWaitTime = await calculateAverageWaitTime();
       const entries = await db
         .select({
           id: queueEntries.id,
           queueNumber: queueEntries.queueNumber,
           status: queueEntries.status,
           isPaid: queueEntries.isPaid,
+          createdAt: queueEntries.createdAt,
           patientId: queueEntries.patientId,
           patient: patients
         })
@@ -268,12 +294,19 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(desc(queueEntries.createdAt));
 
-      res.json(entries);
+      // Calculate estimated wait time for each patient
+      const queueWithWaitTimes = entries.map((entry, index) => ({
+        ...entry,
+        estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
+      }));
+
+      res.json(queueWithWaitTimes);
     } catch (error) {
       console.error('Queue fetch error:', error);
       res.status(500).send("Failed to fetch queue");
     }
   });
+
 
   // Protected endpoints
   app.post("/api/queue/:queueId/status", async (req, res) => {
