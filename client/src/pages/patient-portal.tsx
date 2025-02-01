@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CalendarDays,
   ClipboardList,
@@ -11,7 +10,6 @@ import {
   UserRound,
   Clock,
   Loader2,
-  ChevronRight,
   Activity,
 } from "lucide-react";
 import { useParams } from "wouter";
@@ -49,6 +47,13 @@ type Medication = {
   frequency?: string;
 };
 
+type PrescriptionWithMedications = Omit<SelectPrescription, 'medications'> & {
+  medications: Medication[];
+  doctor: {
+    fullName: string;
+  };
+};
+
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 export default function PatientPortal() {
@@ -73,12 +78,20 @@ export default function PatientPortal() {
     }
   });
 
-  const { data: prescriptions, isLoading: isLoadingPrescriptions } = useQuery<SelectPrescription[]>({
+  const { data: prescriptions, isLoading: isLoadingPrescriptions } = useQuery<PrescriptionWithMedications[]>({
     queryKey: ["/api/patient/prescriptions", id],
     queryFn: async () => {
       const response = await fetch(`/api/patient/prescriptions?patientId=${id}`);
       if (!response.ok) throw new Error("Failed to fetch prescriptions");
-      return response.json();
+      const data = await response.json();
+      // Ensure medications is parsed as an array
+      return data.map((p: any) => ({
+        ...p.prescriptions,
+        doctor: p.doctors,
+        medications: Array.isArray(p.prescriptions.medications) 
+          ? p.prescriptions.medications 
+          : JSON.parse(p.prescriptions.medications)
+      }));
     }
   });
 
@@ -87,7 +100,11 @@ export default function PatientPortal() {
     queryFn: async () => {
       const response = await fetch(`/api/patient/diagnoses?patientId=${id}`);
       if (!response.ok) throw new Error("Failed to fetch diagnoses");
-      return response.json();
+      const data = await response.json();
+      return data.map((d: any) => ({
+        ...d.diagnoses,
+        doctor: d.doctors
+      }));
     }
   });
 
@@ -96,24 +113,33 @@ export default function PatientPortal() {
     queryFn: async () => {
       const response = await fetch(`/api/patient/visits?patientId=${id}`);
       if (!response.ok) throw new Error("Failed to fetch visits");
-      return response.json();
+      const data = await response.json();
+      return data.map((v: any) => ({
+        ...v.visit_records,
+        doctor: v.doctors
+      }));
     }
   });
 
-  const healthAnalytics = {
-    visitsByMonth: [
-      { month: 'Jan', visits: 2 },
-      { month: 'Feb', visits: 1 },
-      { month: 'Mar', visits: 3 },
-      { month: 'Apr', visits: 2 },
-      { month: 'May', visits: 1 },
-    ],
-    diagnosisDistribution: [
-      { name: 'Hypertension', value: 35 },
-      { name: 'Diabetes', value: 25 },
-      { name: 'Allergies', value: 20 },
-      { name: 'Other', value: 20 },
-    ],
+  const formatDate = (dateString: string | Date | null) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = typeof dateString === 'string' ? parseISO(dateString) : dateString;
+      return format(date, "PPP");
+    } catch (error) {
+      console.error('Date parsing error:', error);
+      return "Invalid date";
+    }
+  };
+
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return "N/A";
+    try {
+      return format(parseISO(dateString), "PPP p");
+    } catch (error) {
+      console.error('Date parsing error:', error);
+      return "Invalid date";
+    }
   };
 
   if (isLoadingPatient || isLoadingAppointments || isLoadingPrescriptions || 
@@ -132,26 +158,6 @@ export default function PatientPortal() {
       </div>
     );
   }
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A";
-    try {
-      return format(parseISO(dateString), "PPP");
-    } catch (error) {
-      console.error('Date parsing error:', error);
-      return "Invalid date";
-    }
-  };
-
-  const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A";
-    try {
-      return format(parseISO(dateString), "PPP p");
-    } catch (error) {
-      console.error('Date parsing error:', error);
-      return "Invalid date";
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -389,7 +395,12 @@ export default function PatientPortal() {
                     >
                       <div className="flex justify-between mb-2">
                         <div>
-                          <p className="font-medium">Prescribed on: {formatDate(prescription.createdAt)}</p>
+                            <p className="font-medium">
+                              Prescribed by: {prescription.doctor?.fullName}
+                            </p>
+                          <p className="text-sm text-muted-foreground">
+                            Prescribed on: {formatDate(prescription.createdAt)}
+                          </p>
                           {prescription.endDate && (
                             <p className="text-sm text-muted-foreground">
                               Until: {formatDate(prescription.endDate)}
@@ -405,14 +416,17 @@ export default function PatientPortal() {
                       <div className="mt-2">
                         <h4 className="text-sm font-medium">Medications:</h4>
                         <ul className="list-disc list-inside text-sm ml-2">
-                          {(prescription.medications as Medication[]).map((med, index) => (
-                            <li key={index}>{med.name} - {med.dosage}</li>
+                          {prescription.medications?.map((med, index) => (
+                            <li key={index}>
+                              {med.name} - {med.dosage}
+                              {med.frequency && ` (${med.frequency})`}
+                            </li>
                           ))}
                         </ul>
                       </div>
                       {prescription.instructions && (
                         <p className="mt-2 text-sm text-muted-foreground">
-                          {prescription.instructions}
+                          Instructions: {prescription.instructions}
                         </p>
                       )}
                     </div>
