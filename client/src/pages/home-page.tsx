@@ -32,7 +32,7 @@ export default function HomePage() {
 
           <div className="hidden md:block">
             <img 
-              src="./attached_assets/image post.jpg" 
+              src={new URL('../../attached_assets/image post.jpg', import.meta.url).href}
               alt="Cloud Cares - India's Digital Health Revolution"
               className="w-full rounded-lg shadow-lg"
             />
