@@ -3,8 +3,12 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { setupWebSocketServer } from "./websocket";
 import { db } from "@db";
-import { patients, queueEntries, insertPatientSchema } from "@db/schema";
-import { desc, eq, and } from "drizzle-orm";
+import { 
+  patients, queueEntries, insertPatientSchema,
+  appointments, prescriptions, diagnoses, visitRecords,
+  doctors, patientDoctorAssignments
+} from "@db/schema";
+import { desc, eq, and, gt } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 
 // Store pending transactions in memory (in production, use Redis or database)
@@ -15,6 +19,120 @@ export function registerRoutes(app: Express): Server {
 
   const httpServer = createServer(app);
   const wss = setupWebSocketServer(httpServer);
+
+  // Patient Portal API endpoints
+  app.get("/api/patient/profile", async (req, res) => {
+    const { mobile } = req.query;
+    if (!mobile) {
+      return res.status(400).send("Mobile number is required");
+    }
+
+    try {
+      const [patient] = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.mobile, mobile as string))
+        .limit(1);
+
+      if (!patient) {
+        return res.status(404).send("Patient not found");
+      }
+
+      res.json(patient);
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      res.status(500).send("Failed to fetch patient profile");
+    }
+  });
+
+  app.get("/api/patient/appointments", async (req, res) => {
+    const { patientId } = req.query;
+    if (!patientId) {
+      return res.status(400).send("Patient ID is required");
+    }
+
+    try {
+      const results = await db
+        .select()
+        .from(appointments)
+        .innerJoin(doctors, eq(appointments.doctorId, doctors.id))
+        .where(eq(appointments.patientId, parseInt(patientId as string)))
+        .orderBy(desc(appointments.scheduledFor));
+
+      res.json(results);
+    } catch (error) {
+      console.error('Appointments fetch error:', error);
+      res.status(500).send("Failed to fetch appointments");
+    }
+  });
+
+  app.get("/api/patient/prescriptions", async (req, res) => {
+    const { patientId } = req.query;
+    if (!patientId) {
+      return res.status(400).send("Patient ID is required");
+    }
+
+    try {
+      const results = await db
+        .select()
+        .from(prescriptions)
+        .innerJoin(doctors, eq(prescriptions.doctorId, doctors.id))
+        .where(
+          and(
+            eq(prescriptions.patientId, parseInt(patientId as string)),
+            eq(prescriptions.isActive, true)
+          )
+        )
+        .orderBy(desc(prescriptions.createdAt));
+
+      res.json(results);
+    } catch (error) {
+      console.error('Prescriptions fetch error:', error);
+      res.status(500).send("Failed to fetch prescriptions");
+    }
+  });
+
+  app.get("/api/patient/diagnoses", async (req, res) => {
+    const { patientId } = req.query;
+    if (!patientId) {
+      return res.status(400).send("Patient ID is required");
+    }
+
+    try {
+      const results = await db
+        .select()
+        .from(diagnoses)
+        .innerJoin(doctors, eq(diagnoses.doctorId, doctors.id))
+        .where(eq(diagnoses.patientId, parseInt(patientId as string)))
+        .orderBy(desc(diagnoses.diagnosedAt));
+
+      res.json(results);
+    } catch (error) {
+      console.error('Diagnoses fetch error:', error);
+      res.status(500).send("Failed to fetch diagnoses");
+    }
+  });
+
+  app.get("/api/patient/visits", async (req, res) => {
+    const { patientId } = req.query;
+    if (!patientId) {
+      return res.status(400).send("Patient ID is required");
+    }
+
+    try {
+      const results = await db
+        .select()
+        .from(visitRecords)
+        .innerJoin(doctors, eq(visitRecords.doctorId, doctors.id))
+        .where(eq(visitRecords.patientId, parseInt(patientId as string)))
+        .orderBy(desc(visitRecords.visitedAt));
+
+      res.json(results);
+    } catch (error) {
+      console.error('Visit records fetch error:', error);
+      res.status(500).send("Failed to fetch visit records");
+    }
+  });
 
   // Public endpoints
   app.post("/api/register-patient", async (req, res) => {

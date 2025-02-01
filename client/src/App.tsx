@@ -6,11 +6,12 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { LanguageProvider } from "./lib/language-context";
 import { ProtectedRoute } from "./lib/protected-route";
 
-import HomePage from "@/pages/home-page";
-import AuthPage from "@/pages/auth-page";
-import QueueDisplay from "@/pages/queue-display";
-import AdminDashboard from "@/pages/admin-dashboard";
-import NotFound from "@/pages/not-found";
+import HomePage from "./pages/home-page";
+import AuthPage from "./pages/auth-page";
+import QueueDisplay from "./pages/queue-display";
+import AdminDashboard from "./pages/admin-dashboard";
+import PatientPortal from "./pages/patient-portal";
+import NotFound from "./pages/not-found";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/display" component={QueueDisplay} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/patient/:id" component={PatientPortal} />
       <ProtectedRoute path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
