@@ -17,10 +17,13 @@ import { useState } from "react";
 import { Card } from "./ui/card";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/lib/language-context";
+import { getTranslation } from "@/lib/translations";
 
 export default function RegistrationForm() {
   const { registerPatient } = useQueue();
   const { toast } = useToast();
+  const { language } = useLanguage();
   const [registrationData, setRegistrationData] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,10 +60,16 @@ export default function RegistrationForm() {
   if (registrationData) {
     return (
       <Card className="p-6">
-        <h3 className="text-xl font-semibold mb-4">Complete Registration</h3>
+        <h3 className="text-xl font-semibold mb-4">{getTranslation('paymentTitle', language)}</h3>
         <div className="mb-4">
-          <p className="text-lg font-medium">Queue Number: <span className="text-primary">{String(registrationData.queueEntry.queueNumber).padStart(3, '0')}</span></p>
-          <p className="text-sm text-muted-foreground">Please complete the payment to secure your spot</p>
+          <p className="text-lg font-medium">
+            Queue Number: <span className="text-primary">
+              {String(registrationData.queueEntry.queueNumber).padStart(3, '0')}
+            </span>
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {getTranslation('paymentDescription', language)}
+          </p>
         </div>
         <PaymentQR queueId={registrationData.queueEntry.id} />
       </Card>
@@ -75,9 +84,9 @@ export default function RegistrationForm() {
           name="fullName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel>{getTranslation('fullName', language)}</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder={getTranslation('fullNamePlaceholder', language)} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -89,9 +98,13 @@ export default function RegistrationForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>{getTranslation('email', language)}</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="john@example.com" {...field} />
+                <Input 
+                  type="email" 
+                  placeholder={getTranslation('emailPlaceholder', language)}
+                  {...field} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -103,9 +116,12 @@ export default function RegistrationForm() {
           name="mobile"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Mobile Number</FormLabel>
+              <FormLabel>{getTranslation('mobile', language)}</FormLabel>
               <FormControl>
-                <Input placeholder="+91 9876543210" {...field} />
+                <Input 
+                  placeholder={getTranslation('mobilePlaceholder', language)}
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -116,10 +132,10 @@ export default function RegistrationForm() {
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Registering...
+              {getTranslation('registering', language)}
             </>
           ) : (
-            "Register"
+            getTranslation('register', language)
           )}
         </Button>
       </form>
