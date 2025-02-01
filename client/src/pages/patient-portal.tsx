@@ -11,6 +11,8 @@ import {
   Clock,
   Loader2,
   Activity,
+  Bell,
+  Calendar
 } from "lucide-react";
 import { useParams } from "wouter";
 import { format, parseISO, differenceInMonths } from "date-fns";
@@ -382,61 +384,159 @@ export default function PatientPortal() {
           )}
 
           {activeTab === "prescriptions" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Current Prescriptions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {prescriptions?.map(prescription => (
-                    <div
-                      key={prescription.id}
-                      className="border rounded-lg p-4"
-                    >
-                      <div className="flex justify-between mb-2">
-                        <div>
-                            <p className="font-medium">
-                              Prescribed by: {prescription.doctor?.fullName}
-                            </p>
-                          <p className="text-sm text-muted-foreground">
-                            Prescribed on: {formatDate(prescription.createdAt)}
-                          </p>
-                          {prescription.endDate && (
-                            <p className="text-sm text-muted-foreground">
-                              Until: {formatDate(prescription.endDate)}
-                            </p>
-                          )}
-                        </div>
-                        <span className={`inline-block px-2 py-1 rounded-full text-xs ${
-                          prescription.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100'
-                        }`}>
-                          {prescription.isActive ? 'Active' : 'Completed'}
-                        </span>
-                      </div>
-                      <div className="mt-2">
-                        <h4 className="text-sm font-medium">Medications:</h4>
-                        <ul className="list-disc list-inside text-sm ml-2">
-                          {prescription.medications?.map((med, index) => (
-                            <li key={index}>
-                              {med.name} - {med.dosage}
-                              {med.frequency && ` (${med.frequency})`}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      {prescription.instructions && (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Instructions: {prescription.instructions}
-                        </p>
-                      )}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Pill className="h-5 w-5" />
+                    Current Prescriptions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Achievement Banner */}
+                  <div className="mb-6 bg-primary/10 rounded-lg p-4 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-primary">Medication Champion! 🏆</h3>
+                      <p className="text-sm text-muted-foreground">
+                        You've been consistent with your medication schedule. Keep it up!
+                      </p>
                     </div>
+                    <div className="text-2xl">⭐️ x3</div>
+                  </div>
+
+                  {/* Prescriptions Table */}
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-3 text-left">Medication Details</th>
+                          <th className="p-3 text-left">Schedule</th>
+                          <th className="p-3 text-left">Progress</th>
+                          <th className="p-3 text-left">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {prescriptions?.map((prescription) => (
+                          prescription.medications?.map((med, medIndex) => (
+                            <tr key={`${prescription.id}-${medIndex}`} className="hover:bg-muted/50">
+                              <td className="p-3">
+                                <div>
+                                  <p className="font-medium">{med.name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {med.dosage}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="space-y-1">
+                                  <p className="text-sm">{med.frequency || 'As needed'}</p>
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3" />
+                                    Next dose in 2 hours
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="space-y-1">
+                                  <div className="h-2 w-24 rounded-full bg-muted">
+                                    <div 
+                                      className="h-full rounded-full bg-primary" 
+                                      style={{ width: `${Math.random() * 100}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    14 days remaining
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                                  prescription.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100'
+                                }}`}>
+                                  {prescription.isActive ? '● Active' : 'Completed'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Instructions Cards */}
+                  {prescriptions?.map((prescription) => (
+                    prescription.instructions && (
+                      <Card key={`instructions-${prescription.id}`} className="mt-4 border-primary/20">
+                        <CardContent className="pt-6">
+                          <div className="flex items-start gap-4">
+                            <div className="p-2 rounded-full bg-primary/10">
+                              <ClipboardList className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium mb-1">Special Instructions</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {prescription.instructions}
+                              </p>
+                              <div className="mt-2 flex items-center gap-2 text-sm">
+                                <span className="text-primary">💊 Prescribed by:</span>
+                                <span>{prescription.doctor?.fullName}</span>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-muted-foreground">{formatDate(prescription.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
                   ))}
+
                   {(!prescriptions || prescriptions.length === 0) && (
-                    <p className="text-center text-muted-foreground">No active prescriptions</p>
+                    <div className="text-center py-6">
+                      <Pill className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-muted-foreground">No active prescriptions</p>
+                    </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              {/* Medication Tips */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Tips for Better Medication Adherence 🌟</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 text-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <Clock className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Set Regular Times</p>
+                        <p className="text-muted-foreground">Take medications at the same time each day to build a routine</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <Bell className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Use Reminders</p>
+                        <p className="text-muted-foreground">Set alarms or notifications on your phone</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        <Calendar className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Track Your Progress</p>
+                        <p className="text-muted-foreground">Mark each dose as taken to maintain consistency</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {activeTab === "diagnoses" && (
