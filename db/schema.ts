@@ -134,7 +134,6 @@ export const medicineOrders = pgTable("medicine_orders", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-
 export const patientPreferences = pgTable("patient_preferences", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").references(() => patients.id),
@@ -220,13 +219,96 @@ export const patientPreferencesRelations = relations(patientPreferences, ({ one 
     fields: [patientPreferences.primaryDoctorId],
     references: [doctors.id],
   }),
-  preferredClinic: one(clinics, {
+    preferredClinic: one(clinics, {
     fields: [patientPreferences.preferredClinicId],
     references: [clinics.id],
   }),
 }));
 
 
+// Add these new tables after the existing ones
+export const doctorMetrics = pgTable("doctor_metrics", {
+  id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").references(() => doctors.id),
+  date: date("date").notNull(),
+  patientsCount: integer("patients_count").default(0),
+  newPatientsCount: integer("new_patients_count").default(0),
+  revenue: decimal("revenue", { precision: 10, scale: 2 }).default("0"),
+  prescriptionsCount: integer("prescriptions_count").default(0),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
+});
+
+export const doctorClinicAssignments = pgTable("doctor_clinic_assignments", {
+  id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").references(() => doctors.id),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  schedule: jsonb("schedule"), // Weekly schedule at this clinic
+  isActive: boolean("is_active").default(true),
+});
+
+export const medicationBrands = pgTable("medication_brands", {
+  id: serial("id").primaryKey(),
+  genericName: text("generic_name").notNull(),
+  brandName: text("brand_name").notNull(),
+  manufacturer: text("manufacturer").notNull(),
+  rewardPoints: integer("reward_points").default(0),
+  isCloudCarePartner: boolean("is_cloud_care_partner").default(false),
+});
+
+export const prescriptionAnalytics = pgTable("prescription_analytics", {
+  id: serial("id").primaryKey(),
+  prescriptionId: integer("prescription_id").references(() => prescriptions.id),
+  medicationBrandId: integer("medication_brand_id").references(() => medicationBrands.id),
+  quantity: integer("quantity").notNull(),
+  revenue: decimal("revenue", { precision: 10, scale: 2 }),
+  rewardPointsEarned: integer("reward_points_earned").default(0),
+});
+
+// Add relations
+export const doctorMetricsRelations = relations(doctorMetrics, ({ one }) => ({
+  doctor: one(doctors, {
+    fields: [doctorMetrics.doctorId],
+    references: [doctors.id],
+  }),
+}));
+
+export const doctorClinicAssignmentsRelations = relations(doctorClinicAssignments, ({ one }) => ({
+  doctor: one(doctors, {
+    fields: [doctorClinicAssignments.doctorId],
+    references: [doctors.id],
+  }),
+  clinic: one(clinics, {
+    fields: [doctorClinicAssignments.clinicId],
+    references: [clinics.id],
+  }),
+}));
+
+export const prescriptionAnalyticsRelations = relations(prescriptionAnalytics, ({ one }) => ({
+  prescription: one(prescriptions, {
+    fields: [prescriptionAnalytics.prescriptionId],
+    references: [prescriptions.id],
+  }),
+  medicationBrand: one(medicationBrands, {
+    fields: [prescriptionAnalytics.medicationBrandId],
+    references: [medicationBrands.id],
+  }),
+}));
+
+// Add the new schemas
+export const insertDoctorMetricsSchema = createInsertSchema(doctorMetrics);
+export const selectDoctorMetricsSchema = createSelectSchema(doctorMetrics);
+
+export const insertDoctorClinicAssignmentSchema = createInsertSchema(doctorClinicAssignments);
+export const selectDoctorClinicAssignmentSchema = createSelectSchema(doctorClinicAssignments);
+
+export const insertMedicationBrandSchema = createInsertSchema(medicationBrands);
+export const selectMedicationBrandSchema = createSelectSchema(medicationBrands);
+
+export const insertPrescriptionAnalyticsSchema = createInsertSchema(prescriptionAnalytics);
+export const selectPrescriptionAnalyticsSchema = createSelectSchema(prescriptionAnalytics);
+
+// Add new types
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 
@@ -266,6 +348,7 @@ export const selectPatientPreferencesSchema = createSelectSchema(patientPreferen
 export const insertClinicSchema = createInsertSchema(clinics);
 export const selectClinicSchema = createSelectSchema(clinics);
 
+
 export type InsertUser = typeof users.$inferInsert;
 export type SelectUser = typeof users.$inferSelect;
 export type InsertPatient = typeof patients.$inferInsert;
@@ -292,3 +375,11 @@ export type InsertPatientPreferences = typeof patientPreferences.$inferInsert;
 export type SelectPatientPreferences = typeof patientPreferences.$inferSelect;
 export type InsertClinic = typeof clinics.$inferInsert;
 export type SelectClinic = typeof clinics.$inferSelect;
+export type InsertDoctorMetrics = typeof doctorMetrics.$inferInsert;
+export type SelectDoctorMetrics = typeof doctorMetrics.$inferSelect;
+export type InsertDoctorClinicAssignment = typeof doctorClinicAssignments.$inferInsert;
+export type SelectDoctorClinicAssignment = typeof doctorClinicAssignments.$inferSelect;
+export type InsertMedicationBrand = typeof medicationBrands.$inferInsert;
+export type SelectMedicationBrand = typeof medicationBrands.$inferSelect;
+export type InsertPrescriptionAnalytics = typeof prescriptionAnalytics.$inferInsert;
+export type SelectPrescriptionAnalytics = typeof prescriptionAnalytics.$inferSelect;

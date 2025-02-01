@@ -7,7 +7,8 @@ import {
   patients, queueEntries, insertPatientSchema,
   appointments, prescriptions, diagnoses, visitRecords,
   doctors, patientDoctorAssignments, patientPreferences, pharmacies, clinics,
-  medicineOrders, insertVisitRecordSchema, insertDiagnosisSchema, insertPrescriptionSchema
+  medicineOrders, insertVisitRecordSchema, insertDiagnosisSchema, insertPrescriptionSchema,
+  doctorMetrics, doctorClinicAssignments, prescriptionAnalytics
 } from "@db/schema";
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
@@ -559,8 +560,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Patient not found");
       }
 
-      // Fetch all related records
-      const [visits, diagnoses, prescriptions, appointments] = await Promise.all([
+      // Fetch all related records using Promise.all with proper typing
+      const [visitsData, diagnosesData, prescriptionsData, appointmentsData] = await Promise.all([
         db.select().from(visitRecords)
           .where(eq(visitRecords.patientId, patient.id))
           .orderBy(desc(visitRecords.visitedAt)),
@@ -577,10 +578,10 @@ export function registerRoutes(app: Express): Server {
 
       res.json({
         ...patient,
-        visits,
-        diagnoses,
-        prescriptions,
-        appointments
+        visits: visitsData,
+        diagnoses: diagnosesData,
+        prescriptions: prescriptionsData,
+        appointments: appointmentsData
       });
     } catch (error) {
       console.error('Error fetching patient history:', error);
@@ -650,6 +651,112 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to create prescription");
     }
   });
+// Add these routes after the existing doctor-related endpoints
+// Doctor Dashboard API endpoints
+app.get("/api/doctor/dashboard", async (req, res) => {
+  if (!req.isAuthenticated()) return res.sendStatus(401);
 
+  try {
+    const [doctor] = await db
+      .select()
+      .from(doctors)
+      .where(eq(doctors.userId, req.user.id))
+      .limit(1);
+
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
+
+    // Get last 12 months of metrics
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - 11);
+    startDate.toISOString(); // Convert to ISO string for database comparison
+
+    const metrics = await db
+      .select()
+      .from(doctorMetrics)
+      .where(
+        and(
+          eq(doctorMetrics.doctorId, doctor.id),
+          gt(doctorMetrics.date, startDate.toISOString())
+        )
+      )
+      .orderBy(desc(doctorMetrics.date));
+
+    // Get clinic assignments with clinic details
+    const clinicAssignments = await db
+      .select({
+        assignment: doctorClinicAssignments,
+        clinic: clinics,
+      })
+      .from(doctorClinicAssignments)
+      .innerJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
+      .where(
+        and(
+          eq(doctorClinicAssignments.doctorId, doctor.id),
+          eq(doctorClinicAssignments.isActive, true)
+        )
+      );
+
+    // Get recent patients
+    const recentPatients = await db
+      .select()
+      .from(patients)
+      .innerJoin(patientDoctorAssignments, eq(patients.id, patientDoctorAssignments.patientId))
+      .where(eq(patientDoctorAssignments.doctorId, doctor.id))
+      .orderBy(desc(patients.registeredAt))
+      .limit(5);
+
+    // Calculate performance rank
+    const [rank] = await db
+      .select({
+        rank: sql<number>`
+          rank() over (order by sum(doctor_metrics.revenue) desc)
+        `.as('rank')
+      })
+      .from(doctorMetrics)
+      .where(eq(doctorMetrics.doctorId, doctor.id))
+      .groupBy(doctorMetrics.doctorId)
+      .limit(1);
+
+    // Calculate reward points from prescriptions
+    const [rewardPoints] = await db
+      .select({
+        total: sql<number>`sum(reward_points_earned)`.as('total')
+      })
+      .from(prescriptionAnalytics)
+      .innerJoin(prescriptions, eq(prescriptionAnalytics.prescriptionId, prescriptions.id))
+      .where(eq(prescriptions.doctorId, doctor.id))
+      .limit(1);
+
+    // Calculate total and projected earnings
+    const [earnings] = await db
+      .select({
+        total: sql<number>`sum(revenue)`.as('total'),
+        projected: sql<number>`
+          sum(revenue) + (avg(revenue) * 3)
+        `.as('projected')
+      })
+      .from(doctorMetrics)
+      .where(eq(doctorMetrics.doctorId, doctor.id))
+      .limit(1);
+
+    res.json({
+      metrics,
+      clinicAssignments: clinicAssignments.map(({ assignment, clinic }) => ({
+        ...assignment,
+        clinic,
+      })),
+      recentPatients,
+      performanceRank: rank?.rank || 1,
+      totalEarnings: earnings?.total || 0,
+      projectedEarnings: earnings?.projected || 0,
+      rewardPoints: rewardPoints?.total || 0,
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    res.status(500).send("Failed to fetch dashboard data");
+  }
+});
   return httpServer;
 }
