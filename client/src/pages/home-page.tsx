@@ -32,7 +32,7 @@ export default function HomePage() {
 
           <div className="hidden md:block">
             <img 
-              src="/attached_assets/image post.jpg" 
+              src="image post.jpg" 
               alt="Cloud Cares - India's Digital Health Revolution"
               className="w-full rounded-lg shadow-lg"
             />

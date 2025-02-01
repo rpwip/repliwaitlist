@@ -24,7 +24,7 @@ export function LanguageSelector() {
       <label className="block text-sm font-medium mb-2 text-primary-foreground">
         Language
       </label>
-      <Select value="en" onValueChange={(value: any) => setLanguage(value)}>
+      <Select defaultValue="en" onValueChange={(value: any) => setLanguage(value)}>
         <SelectTrigger>
           <SelectValue>{currentLanguage}</SelectValue>
         </SelectTrigger>
