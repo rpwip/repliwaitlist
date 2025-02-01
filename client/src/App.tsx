@@ -18,8 +18,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={HomePage} />
-      <Route path="/display" component={QueueDisplay} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/display" component={QueueDisplay} />
       <Route path="/patient/:id" component={PatientPortal} />
       <ProtectedRoute path="/doctor" component={DoctorPortal} />
       <ProtectedRoute path="/admin" component={AdminDashboard} />

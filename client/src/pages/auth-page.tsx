@@ -19,13 +19,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { insertDoctorSchema } from "@db/schema";
 import { useLocation } from "wouter";
-import { MultiSelect } from "@/components/ui/multi-select";
-import { Github, Mail } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { Github } from "lucide-react";
+import { z } from "zod";
+
+const loginFormSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+// Create a registration schema that matches the database schema
+const registrationSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
+  specialization: z.string().min(1, "Specialization is required"),
+  qualifications: z.string().min(1, "Qualifications are required"),
+  contactNumber: z.string().min(1, "Contact number is required"),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+  isAdmin: z.boolean().optional()
+});
 
 export default function AuthPage() {
   const { loginMutation, registerDoctorMutation } = useAuth();
@@ -39,6 +52,7 @@ export default function AuthPage() {
   });
 
   const loginForm = useForm({
+    resolver: zodResolver(loginFormSchema),
     defaultValues: {
       username: "",
       password: "",
@@ -46,20 +60,19 @@ export default function AuthPage() {
   });
 
   const registrationForm = useForm({
-    resolver: zodResolver(insertDoctorSchema),
+    resolver: zodResolver(registrationSchema),
     defaultValues: {
+      fullName: "",
+      specialization: "",
+      qualifications: "",
+      contactNumber: "",
       username: "",
       password: "",
-      fullName: "",
-      email: "",
-      specialization: "",
-      licenseNumber: "",
-      clinicIds: [],
-      role: "doctor",
+      isAdmin: false,
     },
   });
 
-  const onLogin = async (data: any) => {
+  const onLogin = async (data: z.infer<typeof loginFormSchema>) => {
     try {
       await loginMutation.mutateAsync(data);
       setLocation("/doctor");
@@ -68,7 +81,7 @@ export default function AuthPage() {
     }
   };
 
-  const onRegister = async (data: any) => {
+  const onRegister = async (data: z.infer<typeof registrationSchema>) => {
     try {
       await registerDoctorMutation.mutateAsync(data);
       setLocation("/doctor");
@@ -157,7 +170,7 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Username</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input placeholder="Enter username" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -171,15 +184,15 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input type="password" placeholder="Enter password" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  <Button type="submit" className="w-full">
-                    Sign In
+                  <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                    {loginMutation.isPending ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
               </Form>
@@ -188,40 +201,12 @@ export default function AuthPage() {
                 <form onSubmit={registrationForm.handleSubmit(onRegister)} className="space-y-4">
                   <FormField
                     control={registrationForm.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Dr. John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registrationForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="doctor@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={registrationForm.control}
                     name="username"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Username</FormLabel>
                         <FormControl>
-                          <Input placeholder="dr.john" {...field} />
+                          <Input placeholder="Choose a username" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -235,7 +220,21 @@ export default function AuthPage() {
                       <FormItem>
                         <FormLabel>Password</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input type="password" placeholder="Choose a password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={registrationForm.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Dr. John Doe" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -269,12 +268,12 @@ export default function AuthPage() {
 
                   <FormField
                     control={registrationForm.control}
-                    name="licenseNumber"
+                    name="qualifications"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Medical License Number</FormLabel>
+                        <FormLabel>Qualifications</FormLabel>
                         <FormControl>
-                          <Input placeholder="License number" {...field} />
+                          <Input placeholder="MBBS, MD, etc." {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -283,28 +282,24 @@ export default function AuthPage() {
 
                   <FormField
                     control={registrationForm.control}
-                    name="clinicIds"
+                    name="contactNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Associated Clinics</FormLabel>
+                        <FormLabel>Contact Number</FormLabel>
                         <FormControl>
-                          <MultiSelect
-                            options={clinics?.map((clinic: any) => ({
-                              label: clinic.name || '',
-                              value: clinic.id?.toString() || '',
-                            })) || []}
-                            selected={field.value}
-                            onChange={(values) => field.onChange(values)}
-                            placeholder="Select clinics"
-                          />
+                          <Input placeholder="+91 98765 43210" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  <Button type="submit" className="w-full">
-                    Register
+                  <Button 
+                    type="submit" 
+                    className="w-full"
+                    disabled={registerDoctorMutation.isPending}
+                  >
+                    {registerDoctorMutation.isPending ? "Registering..." : "Register"}
                   </Button>
                 </form>
               </Form>
