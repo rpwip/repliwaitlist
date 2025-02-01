@@ -85,10 +85,10 @@ export function registerRoutes(app: Express): Server {
         const [queuePosition] = await db
           .select({
             position: sql<number>`
-              COUNT(*) 
-              FROM queue_entries 
-              WHERE queue_number <= ${queueEntry.queueNumber}
-              AND status = 'waiting'
+              SELECT COUNT(*) 
+              FROM queue_entries q
+              WHERE q.queue_number <= ${queueEntry.queueNumber}
+              AND q.status = 'waiting'
             `
           })
           .from(queueEntries);
