@@ -13,6 +13,9 @@ import {
   Building2,
   Award,
   Activity,
+  PieChart,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -24,6 +27,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import type {
   SelectPatient,
@@ -41,7 +47,20 @@ type DoctorDashboardData = {
   totalEarnings: number;
   projectedEarnings: number;
   rewardPoints: number;
+  prescriptionStats?: {
+    totalCount: number;
+    cloudCarePartnerCount: number;
+    nonPartnerCount: number;
+    potentialExtraRewards: number;
+    brandDistribution: {
+      brandName: string;
+      count: number;
+      isCloudCarePartner: boolean;
+    }[];
+  };
 };
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function DoctorPortal() {
   const { user } = useAuth();
@@ -73,6 +92,132 @@ export default function DoctorPortal() {
       </div>
     );
   }
+
+  const renderPrescriptions = () => (
+    <div className="space-y-6">
+      {/* Prescription Stats Overview */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Prescriptions</CardTitle>
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboardData.prescriptionStats?.totalCount || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Last 30 days
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">CloudCare Partner Brands</CardTitle>
+            <Award className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboardData.prescriptionStats?.cloudCarePartnerCount || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Partner brand prescriptions
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Potential Extra Rewards</CardTitle>
+            <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {dashboardData.prescriptionStats?.potentialExtraRewards || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Points from partner alternatives
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Non-Partner Brands</CardTitle>
+            <ArrowDownRight className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-muted">
+              {dashboardData.prescriptionStats?.nonPartnerCount || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Opportunity for partner brands
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Brand Distribution Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Prescription Brand Distribution</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <RechartsPieChart>
+              <Pie
+                data={dashboardData.prescriptionStats?.brandDistribution || []}
+                dataKey="count"
+                nameKey="brandName"
+                cx="50%"
+                cy="50%"
+                outerRadius={150}
+                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+              >
+                {dashboardData.prescriptionStats?.brandDistribution.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={COLORS[index % COLORS.length]}
+                    opacity={entry.isCloudCarePartner ? 1 : 0.6}
+                  />
+                ))}
+              </Pie>
+              <Tooltip />
+            </RechartsPieChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Partner vs Non-Partner Comparison */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Partner Brand Opportunities</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {dashboardData.prescriptionStats?.brandDistribution
+              .filter(brand => !brand.isCloudCarePartner)
+              .map((brand, index) => (
+                <div key={brand.brandName} className="flex items-center justify-between border-b pb-4 last:border-0">
+                  <div>
+                    <h3 className="font-medium">{brand.brandName}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {brand.count} prescriptions
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-green-600">
+                      +{Math.round(brand.count * 75)} potential reward points
+                    </p>
+                    <Button variant="outline" size="sm">
+                      View Alternatives
+                    </Button>
+                  </div>
+                </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -273,7 +418,7 @@ export default function DoctorPortal() {
           {/* Main Content */}
           <div className="md:col-span-9">
             {view === "overview" && renderOverview()}
-            {/* Add other views (patients, prescriptions) as needed */}
+            {view === "prescriptions" && renderPrescriptions()}
           </div>
         </div>
       </div>

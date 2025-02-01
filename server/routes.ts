@@ -8,7 +8,7 @@ import {
   appointments, prescriptions, diagnoses, visitRecords,
   doctors, patientDoctorAssignments, patientPreferences, pharmacies, clinics,
   medicineOrders, insertVisitRecordSchema, insertDiagnosisSchema, insertPrescriptionSchema,
-  doctorMetrics, doctorClinicAssignments, prescriptionAnalytics
+  doctorMetrics, doctorClinicAssignments, prescriptionAnalytics, medicationBrands
 } from "@db/schema";
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
@@ -670,7 +670,6 @@ app.get("/api/doctor/dashboard", async (req, res) => {
     // Get last 12 months of metrics
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - 11);
-    startDate.toISOString(); // Convert to ISO string for database comparison
 
     const metrics = await db
       .select()
@@ -678,7 +677,7 @@ app.get("/api/doctor/dashboard", async (req, res) => {
       .where(
         and(
           eq(doctorMetrics.doctorId, doctor.id),
-          gt(doctorMetrics.date, startDate.toISOString())
+          gt(doctorMetrics.date, startDate)
         )
       )
       .orderBy(desc(doctorMetrics.date));
@@ -719,6 +718,50 @@ app.get("/api/doctor/dashboard", async (req, res) => {
       .groupBy(doctorMetrics.doctorId)
       .limit(1);
 
+    // Get prescription statistics
+    const prescriptionStats = await db
+      .select({
+        totalCount: sql<number>`count(distinct prescriptions.id)`.as('total_count'),
+        cloudCarePartnerCount: sql<number>`
+          count(distinct case when mb.is_cloud_care_partner then prescriptions.id end)
+        `.as('partner_count'),
+        nonPartnerCount: sql<number>`
+          count(distinct case when not mb.is_cloud_care_partner then prescriptions.id end)
+        `.as('non_partner_count'),
+        potentialExtraRewards: sql<number>`
+          sum(case when not mb.is_cloud_care_partner then mb.reward_points else 0 end)
+        `.as('potential_rewards')
+      })
+      .from(prescriptions)
+      .innerJoin(
+        prescriptionAnalytics,
+        eq(prescriptionAnalytics.prescriptionId, prescriptions.id)
+      )
+      .innerJoin(
+        medicationBrands.as('mb'),
+        eq(prescriptionAnalytics.medicationBrandId, sql.raw('mb.id'))
+      )
+      .where(eq(prescriptions.doctorId, doctor.id));
+
+    // Get brand distribution
+    const brandDistribution = await db
+      .select({
+        brandName: medicationBrands.brandName,
+        isCloudCarePartner: medicationBrands.isCloudCarePartner,
+        count: sql<number>`count(distinct prescriptions.id)`.as('count')
+      })
+      .from(prescriptions)
+      .innerJoin(
+        prescriptionAnalytics,
+        eq(prescriptionAnalytics.prescriptionId, prescriptions.id)
+      )
+      .innerJoin(
+        medicationBrands,
+        eq(prescriptionAnalytics.medicationBrandId, medicationBrands.id)
+      )
+      .where(eq(prescriptions.doctorId, doctor.id))
+      .groupBy(medicationBrands.brandName, medicationBrands.isCloudCarePartner);
+
     // Calculate reward points from prescriptions
     const [rewardPoints] = await db
       .select({
@@ -752,6 +795,10 @@ app.get("/api/doctor/dashboard", async (req, res) => {
       totalEarnings: earnings?.total || 0,
       projectedEarnings: earnings?.projected || 0,
       rewardPoints: rewardPoints?.total || 0,
+      prescriptionStats: {
+        ...prescriptionStats[0],
+        brandDistribution
+      }
     });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
