@@ -593,23 +593,24 @@ app.get("/api/doctor/patients", async (req, res) => {
         return res.status(404).send("Doctor not found");
       }
 
-      const patientsQuery = db
+      // Get total count first
+      const [{ count }] = await db
+        .select({
+          count: sql<number>`COUNT(DISTINCT ${patientDoctorAssignments.patientId})::integer`
+        })
+        .from(patientDoctorAssignments)
+        .where(eq(patientDoctorAssignments.doctorId, doctor.id));
+
+      // Then get the paginated patient data
+      const patientResults = await db
         .select({
           patient: patients,
           assignedAt: patientDoctorAssignments.assignedAt,
           clinic: clinics,
-          lastVisit: sql<Date>`
-            MAX(visit_records.visited_at)
-          `.as('last_visit'),
-          totalVisits: sql<number>`
-            COUNT(DISTINCT visit_records.id)
-          `.as('total_visits'),
-          activeDiagnoses: sql<number>`
-            COUNT(DISTINCT CASE WHEN diagnoses.status = 'Active' THEN diagnoses.id END)
-          `.as('active_diagnoses'),
-          activePresc: sql<number>`
-            COUNT(DISTINCT CASE WHEN prescriptions.is_active = true THEN prescriptions.id END)
-          `.as('active_prescriptions')
+          lastVisit: sql<Date>`MAX(visit_records.visited_at)`.as('last_visit'),
+          totalVisits: sql<number>`COUNT(DISTINCT visit_records.id)`.as('total_visits'),
+          activeDiagnoses: sql<number>`COUNT(DISTINCT CASE WHEN diagnoses.status = 'Active' THEN diagnoses.id END)`.as('active_diagnoses'),
+          activePresc: sql<number>`COUNT(DISTINCT CASE WHEN prescriptions.is_active = true THEN prescriptions.id END)`.as('active_prescriptions')
         })
         .from(patientDoctorAssignments)
         .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
@@ -631,26 +632,14 @@ app.get("/api/doctor/patients", async (req, res) => {
         .groupBy(
           patients.id,
           patientDoctorAssignments.assignedAt,
-          clinics.id,
-          doctorClinicAssignments.id
+          clinics.id
         )
-        .orderBy(desc(sql<Date>`MAX(visit_records.visited_at)`));
-
-      // Get total count
-      const [{ count }] = await db
-        .select({
-          count: sql<number>`COUNT(DISTINCT ${patientDoctorAssignments.patientId})::integer`
-        })
-        .from(patientDoctorAssignments)
-        .where(eq(patientDoctorAssignments.doctorId, doctor.id));
-
-      // Get paginated results
-      const patients = await patientsQuery
+        .orderBy(desc(sql<Date>`MAX(visit_records.visited_at)`))
         .limit(limit)
         .offset(offset);
 
       res.json({
-        patients,
+        patients: patientResults,
         pagination: {
           total: count,
           pages: Math.ceil(count / limit),
@@ -909,7 +898,7 @@ app.get("/api/doctor/dashboard", async (req, res) => {
         total: sql<number>`sum(revenue)`.as('total'),
         projected: sql<number>`sum(revenue) + (avg(revenue) * 3)`.as('projected')
       }).from(doctorMetrics)
-      .where(eq(doctorMetrics.doctorId, doctor.id))
+.where(eq(doctorMetrics.doctorId, doctor.id))
       .limit(1);
 
       res.json({
