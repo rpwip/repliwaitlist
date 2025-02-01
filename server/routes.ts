@@ -574,8 +574,13 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  app.get("/api/doctor/patients", async (req, res) => {
+  // Update the GET /api/doctor/patients endpoint to support pagination
+app.get("/api/doctor/patients", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = 15;
+    const offset = (page - 1) * limit;
 
     try {
       const [doctor] = await db
@@ -588,7 +593,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Doctor not found");
       }
 
-      const patients = await db
+      const patientsQuery = db
         .select({
           patient: patients,
           assignedAt: patientDoctorAssignments.assignedAt,
@@ -597,27 +602,67 @@ export function registerRoutes(app: Express): Server {
             MAX(visit_records.visited_at)
           `.as('last_visit'),
           totalVisits: sql<number>`
-            COUNT(visit_records.id)
-          `.as('total_visits')
+            COUNT(DISTINCT visit_records.id)
+          `.as('total_visits'),
+          activeDiagnoses: sql<number>`
+            COUNT(DISTINCT CASE WHEN diagnoses.status = 'Active' THEN diagnoses.id END)
+          `.as('active_diagnoses'),
+          activePresc: sql<number>`
+            COUNT(DISTINCT CASE WHEN prescriptions.is_active = true THEN prescriptions.id END)
+          `.as('active_prescriptions')
         })
         .from(patientDoctorAssignments)
         .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
-        .leftJoin(clinics, eq(patientDoctorAssignments.clinicId, clinics.id))
-        .leftJoin(visitRecords, eq(visitRecords.patientId, patients.id))
+        .leftJoin(doctorClinicAssignments, eq(doctorClinicAssignments.doctorId, patientDoctorAssignments.doctorId))
+        .leftJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
+        .leftJoin(visitRecords, and(
+          eq(visitRecords.patientId, patients.id),
+          eq(visitRecords.doctorId, doctor.id)
+        ))
+        .leftJoin(diagnoses, and(
+          eq(diagnoses.patientId, patients.id),
+          eq(diagnoses.doctorId, doctor.id)
+        ))
+        .leftJoin(prescriptions, and(
+          eq(prescriptions.patientId, patients.id),
+          eq(prescriptions.doctorId, doctor.id)
+        ))
         .where(eq(patientDoctorAssignments.doctorId, doctor.id))
         .groupBy(
           patients.id,
           patientDoctorAssignments.assignedAt,
-          clinics.id
+          clinics.id,
+          doctorClinicAssignments.id
         )
         .orderBy(desc(sql<Date>`MAX(visit_records.visited_at)`));
 
-      res.json(patients);
+      // Get total count
+      const [{ count }] = await db
+        .select({
+          count: sql<number>`COUNT(DISTINCT ${patientDoctorAssignments.patientId})::integer`
+        })
+        .from(patientDoctorAssignments)
+        .where(eq(patientDoctorAssignments.doctorId, doctor.id));
+
+      // Get paginated results
+      const patients = await patientsQuery
+        .limit(limit)
+        .offset(offset);
+
+      res.json({
+        patients,
+        pagination: {
+          total: count,
+          pages: Math.ceil(count / limit),
+          currentPage: page,
+          perPage: limit
+        }
+      });
     } catch (error) {
       console.error('Error fetching patients:', error);
       res.status(500).send("Failed to fetch patients");
     }
-  });
+});
 
   app.get("/api/doctor/patient-history/:patientId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -862,11 +907,8 @@ app.get("/api/doctor/dashboard", async (req, res) => {
     const [earnings] = await db
       .select({
         total: sql<number>`sum(revenue)`.as('total'),
-        projected: sql<number>`
-          sum(revenue) + (avg(revenue) * 3)
-        `.as('projected')
-      })
-      .from(doctorMetrics)
+        projected: sql<number>`sum(revenue) + (avg(revenue) * 3)`.as('projected')
+      }).from(doctorMetrics)
       .where(eq(doctorMetrics.doctorId, doctor.id))
       .limit(1);
 

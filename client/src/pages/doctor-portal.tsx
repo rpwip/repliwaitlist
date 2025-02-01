@@ -72,7 +72,9 @@ type DoctorDashboardData = {
 };
 
 type DoctorClinicData = {
-  clinic: SelectClinic;
+  clinic: SelectClinic & {
+    email: string;
+  };
   assignment: SelectDoctorClinicAssignment;
   patientCount: number;
   recentPatients: {
@@ -88,8 +90,28 @@ type DoctorPatientData = {
   clinic: SelectClinic;
   lastVisit: string;
   totalVisits: number;
+  activeDiagnoses: number;
+  activePresc: number;
 };
 
+type PaginatedPatientsResponse = {
+  patients: DoctorPatientData[];
+  pagination: {
+    total: number;
+    pages: number;
+    currentPage: number;
+    perPage: number;
+  };
+};
+
+type TopBrandData = {
+  brandName: string;
+  genericName: string;
+  manufacturer: string;
+  totalPrescribed: number;
+  totalRevenue: number;
+  isCloudCarePartner: boolean;
+};
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -99,6 +121,7 @@ export default function DoctorPortal() {
   const [searchTerm, setSearchTerm] = useState("");
   const [brandsSearchTerm, setBrandsSearchTerm] = useState("");
   const [view, setView] = useState<"overview" | "patients" | "prescriptions" | "clinics">("overview");
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     if (!user) {
@@ -124,7 +147,7 @@ export default function DoctorPortal() {
     enabled: !!user?.id,
   });
 
-  const { data: topBrands } = useQuery({
+  const { data: topBrands } = useQuery<TopBrandData[]>({
     queryKey: ["/api/doctor/top-brands", brandsSearchTerm],
     queryFn: async () => {
       const searchParams = new URLSearchParams();
@@ -152,10 +175,10 @@ export default function DoctorPortal() {
     enabled: view === "clinics" && !!user?.id,
   });
 
-  const { data: patientsData } = useQuery<DoctorPatientData[]>({
-    queryKey: ["/api/doctor/patients", user?.id],
+  const { data: patientsData } = useQuery<PaginatedPatientsResponse>({
+    queryKey: ["/api/doctor/patients", user?.id, currentPage],
     queryFn: async () => {
-      const response = await fetch("/api/doctor/patients", {
+      const response = await fetch(`/api/doctor/patients?page=${currentPage}`, {
         credentials: "include"
       });
       if (!response.ok) throw new Error("Failed to fetch patients");
@@ -589,57 +612,88 @@ export default function DoctorPortal() {
 
       {/* Patients Grid */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {patientsData?.filter(data => 
-          data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-        ).map((data) => (
-          <Card key={data.patient.id} className="hover:bg-accent/50 transition-colors">
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <UserRound className="h-6 w-6 text-primary" />
+        {patientsData?.patients
+          .filter(data => 
+            data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+          .map((data) => (
+            <Card key={data.patient.id} className="hover:bg-accent/50 transition-colors">
+              <CardHeader>
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">{data.patient.fullName}</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {data.totalVisits} visits • {data.activeDiagnoses} active conditions
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg">{data.patient.fullName}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {data.totalVisits} total visits
-                  </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Last Visit:</span>
+                    <span className="font-medium">
+                      {data.lastVisit ? format(new Date(data.lastVisit), 'PPP') : 'No visits yet'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Clinic:</span>
+                    <span className="font-medium">{data.clinic?.name || 'Not assigned'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Active Prescriptions:</span>
+                    <span className="font-medium">{data.activePresc}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Assigned:</span>
+                    <span className="font-medium">
+                      {format(new Date(data.assignedAt), 'PP')}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Last Visit:</span>
-                  <span className="font-medium">
-                    {data.lastVisit ? format(new Date(data.lastVisit), 'PPP') : 'No visits yet'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Clinic:</span>
-                  <span className="font-medium">{data.clinic?.name || 'Not assigned'}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Assigned:</span>
-                  <span className="font-medium">
-                    {format(new Date(data.assignedAt), 'PP')}
-                  </span>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" className="w-full">
-                  <ClipboardList className="h-4 w-4 mr-2" />
-                  Records
-                </Button>
-                <Button variant="outline" size="sm" className="w-full">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Schedule
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" className="w-full">
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Records
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
       </div>
+
+      {/* Pagination */}
+      {patientsData?.pagination && (
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {patientsData.pagination.pages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(page => Math.min(patientsData.pagination.pages, page + 1))}
+            disabled={currentPage === patientsData.pagination.pages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 
