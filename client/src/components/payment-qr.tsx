@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
 import { useQueue } from "@/hooks/use-queue";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
 export default function PaymentQR({ queueId }: { queueId: number }) {
   const { confirmPayment } = useQueue();
   const [qrUrl, setQrUrl] = useState("");
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
 
   useEffect(() => {
     // Generate a dummy UPI QR code URL for demonstration
@@ -13,20 +24,69 @@ export default function PaymentQR({ queueId }: { queueId: number }) {
     setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(dummyUpiUrl)}`);
   }, []);
 
+  const handlePaymentConfirmation = async () => {
+    try {
+      setIsConfirming(true);
+      await confirmPayment(queueId);
+      setIsPaid(true);
+    } catch (error) {
+      console.error('Payment confirmation failed:', error);
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  if (isPaid) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Successful!</CardTitle>
+          <CardDescription>Your appointment has been confirmed</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            You will receive an SMS with your queue number and further instructions.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="text-center">
-      <div className="bg-white p-4 inline-block rounded-lg shadow-sm">
-        <img src={qrUrl} alt="Payment QR Code" className="w-48 h-48" />
-      </div>
-      <p className="mt-4 text-sm text-muted-foreground">
-        Scan with any UPI app to pay ₹500
-      </p>
-      <Button
-        className="mt-4"
-        onClick={() => confirmPayment(queueId)}
-      >
-        I've completed the payment
-      </Button>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Complete Payment</CardTitle>
+        <CardDescription>Scan the QR code using any UPI app</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <img src={qrUrl} alt="Payment QR Code" className="w-48 h-48" />
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-lg font-semibold">₹500.00</p>
+            <p className="text-sm text-muted-foreground">
+              Pay using any UPI app (GPay, PhonePe, Paytm, etc.)
+            </p>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button
+          className="w-full"
+          onClick={handlePaymentConfirmation}
+          disabled={isConfirming}
+        >
+          {isConfirming ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Confirming Payment...
+            </>
+          ) : (
+            "I've completed the payment"
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
