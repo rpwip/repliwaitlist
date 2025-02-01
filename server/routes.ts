@@ -805,5 +805,63 @@ app.get("/api/doctor/dashboard", async (req, res) => {
     res.status(500).send("Failed to fetch dashboard data");
   }
 });
+// Add this new endpoint after existing doctor dashboard endpoints
+app.get("/api/doctor/top-brands", async (req, res) => {
+  if (!req.isAuthenticated()) return res.sendStatus(401);
+  const { search } = req.query;
+
+  try {
+    const [doctor] = await db
+      .select()
+      .from(doctors)
+      .where(eq(doctors.userId, req.user.id))
+      .limit(1);
+
+    if (!doctor) {
+      return res.status(404).send("Doctor not found");
+    }
+
+    // Base query for top brands
+    const baseQuery = db
+      .select({
+        brandName: medicationBrands.brandName,
+        genericName: medicationBrands.genericName,
+        manufacturer: medicationBrands.manufacturer,
+        totalPrescribed: sql<number>`sum(prescription_analytics.quantity)`,
+        totalRevenue: sql<number>`sum(prescription_analytics.revenue)`,
+        isCloudCarePartner: medicationBrands.isCloudCarePartner
+      })
+      .from(prescriptionAnalytics)
+      .innerJoin(prescriptions, eq(prescriptionAnalytics.prescriptionId, prescriptions.id))
+      .innerJoin(medicationBrands, eq(prescriptionAnalytics.medicationBrandId, medicationBrands.id))
+      .where(eq(prescriptions.doctorId, doctor.id));
+
+    // Add search condition if search term provided
+    const query = search
+      ? baseQuery.where(
+          or(
+            sql`lower(${medicationBrands.brandName}) like ${`%${search.toLowerCase()}%`}`,
+            sql`lower(${medicationBrands.genericName}) like ${`%${search.toLowerCase()}%`}`
+          )
+        )
+      : baseQuery;
+
+    // Complete the query with grouping and ordering
+    const results = await query
+      .groupBy(
+        medicationBrands.brandName,
+        medicationBrands.genericName,
+        medicationBrands.manufacturer,
+        medicationBrands.isCloudCarePartner
+      )
+      .orderBy(sql`sum(prescription_analytics.quantity) desc`)
+      .limit(10);
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching top brands:', error);
+    res.status(500).send("Failed to fetch top brands data");
+  }
+});
   return httpServer;
 }

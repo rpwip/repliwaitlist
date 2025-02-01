@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
 import {
   Users,
@@ -17,9 +18,10 @@ import {
   PieChart,
   ArrowUpRight,
   ArrowDownRight,
+  Box,
+  BadgeCheck,
 } from "lucide-react";
 import { format } from "date-fns";
-import { Input } from "@/components/ui/input";
 import {
   Area,
   AreaChart,
@@ -67,6 +69,7 @@ export default function DoctorPortal() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
+  const [brandsSearchTerm, setBrandsSearchTerm] = useState("");
   const [view, setView] = useState<"overview" | "patients" | "prescriptions">("overview");
 
   useEffect(() => {
@@ -83,14 +86,30 @@ export default function DoctorPortal() {
       });
       if (!response.ok) {
         if (response.status === 401) {
-            setLocation("/auth");
-            throw new Error("Please log in to view the dashboard");
+          setLocation("/auth");
+          throw new Error("Please log in to view the dashboard");
         }
         throw new Error("Failed to fetch dashboard data");
       }
       return response.json();
     },
     enabled: !!user?.id,
+  });
+
+  const { data: topBrands } = useQuery({
+    queryKey: ["/api/doctor/top-brands", brandsSearchTerm],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      if (brandsSearchTerm) {
+        searchParams.set("search", brandsSearchTerm);
+      }
+      const response = await fetch(`/api/doctor/top-brands?${searchParams}`, {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch top brands");
+      return response.json();
+    },
+    enabled: view === "prescriptions",
   });
 
   if (isLoading) {
@@ -111,6 +130,56 @@ export default function DoctorPortal() {
 
   const renderPrescriptions = () => (
     <div className="space-y-6">
+      {/* Search Box for Brands */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search medicines or brands..."
+            className="pl-8"
+            value={brandsSearchTerm}
+            onChange={(e) => setBrandsSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Top Prescribed Brands */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Prescribed Brands</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {topBrands?.map((brand) => (
+              <div
+                key={brand.brandName}
+                className="flex items-center justify-between border-b pb-4 last:border-0"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    {brand.isCloudCarePartner ? (
+                      <BadgeCheck className="h-6 w-6 text-primary" />
+                    ) : (
+                      <Box className="h-6 w-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium">{brand.brandName}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {brand.genericName} • {brand.manufacturer}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-semibold">{brand.totalPrescribed}</p>
+                  <p className="text-sm text-muted-foreground">Units prescribed</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Prescription Stats Overview */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -199,37 +268,6 @@ export default function DoctorPortal() {
               <Tooltip />
             </RechartsPieChart>
           </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Partner vs Non-Partner Comparison */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Partner Brand Opportunities</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {dashboardData.prescriptionStats?.brandDistribution
-              .filter(brand => !brand.isCloudCarePartner)
-              .map((brand, index) => (
-                <div key={brand.brandName} className="flex items-center justify-between border-b pb-4 last:border-0">
-                  <div>
-                    <h3 className="font-medium">{brand.brandName}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {brand.count} prescriptions
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-green-600">
-                      +{Math.round(brand.count * 75)} potential reward points
-                    </p>
-                    <Button variant="outline" size="sm">
-                      View Alternatives
-                    </Button>
-                  </div>
-                </div>
-            ))}
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -378,7 +416,7 @@ export default function DoctorPortal() {
               </CardHeader>
               <CardContent className="p-4">
                 <div className="space-y-4">
-                  {dashboardData.recentPatients.map((patient) => (
+                  {dashboardData?.recentPatients?.map((patient) => (
                     <div
                       key={patient.id}
                       className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
@@ -405,7 +443,7 @@ export default function DoctorPortal() {
               </CardHeader>
               <CardContent className="p-4">
                 <div className="space-y-4">
-                  {dashboardData.clinicAssignments.map((assignment) => (
+                  {dashboardData?.clinicAssignments?.map((assignment) => (
                     <div
                       key={assignment.id}
                       className="flex flex-col gap-2 cursor-pointer hover:bg-muted p-2 rounded-lg"
