@@ -43,12 +43,12 @@ export default function QueueDisplay() {
       console.log('Setting selected clinic ID to:', parsedId);
       setSelectedClinicId(parsedId);
     } else if (clinics && Array.isArray(clinics) && clinics.length > 0 && !selectedClinicId) {
-      const yazhHealthcare = clinics.find(clinic => clinic.name === "Yazh Health Care");
-      const defaultId = yazhHealthcare?.id || clinics[0].id;
-      console.log('Setting default clinic ID to:', defaultId);
-      setSelectedClinicId(defaultId);
+      const yazhClinic = clinics.find(clinic => clinic.name === "Yazh Health Care");
+      if (yazhClinic) {
+        setSelectedClinicId(yazhClinic.id);
+      }
     }
-  }, [clinics, selectedClinicId]);
+  }, [clinics]);
 
   useEffect(() => {
     console.log('Current queue data:', typedQueue);
@@ -76,9 +76,9 @@ export default function QueueDisplay() {
     );
   }
 
-  // Filter queue based on selected clinic
+  // Filter queue based on selected clinic and valid clinicId
   const filteredQueue = typedQueue.filter((q) => {
-    const matches = q.clinicId === selectedClinicId;
+    const matches = q.clinicId === selectedClinicId && q.clinicId != null;
     console.log(`Queue entry ${q.queueNumber} - clinic ${q.clinicId} matches selected ${selectedClinicId}: ${matches}`);
     return matches;
   });
@@ -113,7 +113,7 @@ export default function QueueDisplay() {
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {Array.isArray(clinics) && clinics.map((clinic) => (
+              {clinics.map((clinic) => (
                 <SelectItem key={clinic.id} value={clinic.id.toString()}>
                   {clinic.name}
                 </SelectItem>

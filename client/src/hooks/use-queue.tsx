@@ -72,10 +72,16 @@ export function useQueue() {
   const queueQuery = useQuery({
     queryKey: ["/api/queue"],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/queue");
-      const data = await res.json();
-      console.log('Queue data fetched:', data);
-      return data;
+      try {
+        console.log('Fetching queue data...');
+        const res = await apiRequest("GET", "/api/queue");
+        const data = await res.json();
+        console.log('Queue data fetched:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching queue:', error);
+        throw error;
+      }
     },
     refetchInterval: isConnected ? false : 5000,
   });
@@ -83,10 +89,16 @@ export function useQueue() {
   const clinicsQuery = useQuery({
     queryKey: ["/api/clinics"],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/clinics");
-      const data = await res.json();
-      console.log('Clinics data fetched:', data);
-      return data;
+      try {
+        console.log('Fetching clinics data...');
+        const res = await apiRequest("GET", "/api/clinics");
+        const data = await res.json();
+        console.log('Clinics data fetched:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching clinics:', error);
+        throw error;
+      }
     }
   });
 
