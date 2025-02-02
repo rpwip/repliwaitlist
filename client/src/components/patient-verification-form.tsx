@@ -65,12 +65,11 @@ export default function PatientVerificationForm() {
       setFoundPatients([]);
       setSelectedPatient(null);
 
-      // Handle both null response and 404 status
-      if (!response || response.status === 404) {
+      if (!response) {
         console.log("No patient found, preparing registration form");
         setIsNewPatient(true);
 
-        // Reset registration form with only mobile, ensure form is editable
+        // Reset registration form with only mobile
         registrationForm.reset({
           fullName: "",
           email: "",
@@ -80,6 +79,23 @@ export default function PatientVerificationForm() {
         toast({
           title: "New Patient",
           description: "Please complete the registration form.",
+        });
+        return;
+      }
+
+      // Handle single patient found
+      if (!Array.isArray(response)) {
+        console.log("Single patient found:", response);
+        setSelectedPatient(response);
+        setIsNewPatient(false);
+
+        if (response.queueEntry) {
+          setRegistrationData({ patient: response, queueEntry: response.queueEntry });
+        }
+
+        toast({
+          title: "Patient Found",
+          description: "Proceeding to next step...",
         });
         return;
       }
