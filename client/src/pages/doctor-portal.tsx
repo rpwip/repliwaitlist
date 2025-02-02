@@ -737,19 +737,7 @@ export default function DoctorPortal() {
     </div>
   );
   
-const renderQueue = () => (
-  <ConsultationQueue
-    clinicsData={clinicsData || []}
-    selectedClinicId={selectedClinicId}
-    onClinicChange={setSelectedClinicId}
-    queueData={queueData || []}
-    currentPatient={currentQueueEntry}
-    onStartConsultation={handleStartConsultation}
-    onSkipPatient={handleSkipPatient}
-    onCompleteConsultation={handleCompleteConsultation}
-  />
-);
-
+  
   const renderClinics = () => (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -874,7 +862,7 @@ const renderQueue = () => (
                     </div>
                   </div>
                 </div>
-              </              </CardHeader>
+              </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Last Visit:</span>
@@ -934,102 +922,69 @@ const renderQueue = () => (
     </div>
   );
 
+  const renderContent = () => {
+    switch (view) {
+      case "overview":
+        return renderOverview();
+      case "queue":
+        return (
+          <ConsultationQueue
+            clinicsData={clinicsData || []}
+            selectedClinicId={selectedClinicId}
+            onClinicChange={setSelectedClinicId}
+            queueData={queueData || []}
+            currentPatient={currentQueueEntry}
+            onStartConsultation={handleStartConsultation}
+            onSkipPatient={handleSkipPatient}
+            onCompleteConsultation={handleCompleteConsultation}
+          />
+        );
+      case "patients":
+        return renderPatients();
+      case "prescriptions":
+        return renderPrescriptions();
+      default:
+        return renderOverview();
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <h1 className="text-2xl font-semibold">Doctor Portal</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Dr. {user?.username}
-            </span>
-          </div>
+    <div className="container mx-auto py-8 space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <h1 className="text-3xl font-bold">Doctor Dashboard</h1>
+          <span className="text-muted-foreground">{formattedDate}</span>
         </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="grid md:grid-cols-12 gap-6">
-          {/* Left Sidebar - Navigation */}
-          <div className="md:col-span-3 space-y-4">
-            <Card>
-              <CardContent className="p-4">
-                <nav className="space-y-2">
-                  <Button
-                    variant={view === "overview" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("overview")}
-                  >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Overview
-                  </Button>
-                  <Button
-                    variant={view === "patients" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("patients")}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Patients
-                  </Button>
-                  <Button
-                    variant={view === "queue" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("queue")}
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    Queue
-                  </Button>
-                  <Button
-                    variant={view === "prescriptions" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("prescriptions")}
-                  >
-                    <ClipboardList className="h-4 w-4 mr-2" />
-                    Prescriptions
-                  </Button>
-                </nav>
-              </CardContent>
-            </Card>
-
-            {/* Recent Patients */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Recent Patients</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  {dashboardData?.recentPatients?.map((patient, index) => (
-                    <div
-                      key={`sidebar-recent-${patient.id}-${index}`}
-                      className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
-                      onClick={() => setSelectedPatientId(patient.id)}
-                    >
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <UserRound className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium">{patient.fullName}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content */}
-          <div className="md:col-span-9">
-            {view === "overview" && renderOverview()}
-            {view === "prescriptions" && renderPrescriptions()}
-            {view === "queue" && renderQueue()}
-            {view === "patients" && renderPatients()}
-          </div>
-        </div>
-
       </div>
+
+      <div className="flex gap-4">
+        <Button
+          variant={view === "overview" ? "default" : "ghost"}
+          onClick={() => setView("overview")}
+        >
+          Overview
+        </Button>
+        <Button
+          variant={view === "queue" ? "default" : "ghost"}
+          onClick={() => setView("queue")}
+        >
+          Queue
+        </Button>
+        <Button
+          variant={view === "patients" ? "default" : "ghost"}
+          onClick={() => setView("patients")}
+        >
+          Patients
+        </Button>
+        <Button
+          variant={view === "prescriptions" ? "default" : "ghost"}
+          onClick={() => setView("prescriptions")}
+        >
+          Prescriptions
+        </Button>
+      </div>
+
+      {renderContent()}
     </div>
   );
 }
