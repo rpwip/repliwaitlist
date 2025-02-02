@@ -5,6 +5,7 @@ import { Clock } from "lucide-react";
 import { PatientHistoryModal } from "@/components/PatientHistoryModal";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 type QueueEntryWithWaitTime = {
   id: number;
@@ -15,6 +16,7 @@ type QueueEntryWithWaitTime = {
     fullName: string;
   };
   estimatedWaitTime: number;
+  clinicId: number;
 };
 
 export default function QueueDisplay() {
@@ -38,6 +40,7 @@ export default function QueueDisplay() {
     .slice(0, 5);
 
   const handleStartConsult = (patientId: number) => {
+    console.log("Starting consult for patient:", patientId);
     setSelectedPatientId(patientId);
     setShowNewVisitForm(true);
   };
@@ -73,12 +76,12 @@ export default function QueueDisplay() {
                 <p className="text-lg text-center">
                   {currentPatient.patient.fullName}
                 </p>
-                <button 
+                <Button 
                   onClick={() => handleStartConsult(currentPatient.patient.id)}
-                  className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90"
+                  className="w-full"
                 >
                   Start Consultation
-                </button>
+                </Button>
               </div>
             ) : (
               <p className="text-center text-muted-foreground">

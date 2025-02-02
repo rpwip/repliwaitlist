@@ -308,15 +308,17 @@ export default function DoctorPortal() {
     },
   });
 
-   const handleStartConsultation = (entry: QueueEntry) => {
+  const handleStartConsultation = (entry: QueueEntry) => {
     try {
+      console.log("Starting consultation for:", entry);
+      // Format the entry data
       const formattedEntry = {
         ...entry,
         patient: {
-          fullName: entry.fullName,
-          id: entry.patientId || 0
+          fullName: entry.fullName || entry.patient?.fullName || '',
+          id: entry.patientId || entry.patient?.id || 0
         },
-        patientId: entry.patientId || 0,
+        patientId: entry.patientId || entry.patient?.id || 0,
         vitals: entry.vitals || {
           bp: 'N/A',
           temperature: 'N/A',
@@ -326,9 +328,12 @@ export default function DoctorPortal() {
         visitReason: entry.visitReason || 'Not specified'
       };
 
+      // Update state before making the API call
       setCurrentQueueEntry(formattedEntry);
-      setSelectedPatientId(entry.patientId || 0);
+      setSelectedPatientId(formattedEntry.patientId);
       setShowNewVisitModal(true);
+
+      // Make the API call
       startConsultation.mutate(entry.id);
     } catch (error) {
       console.error('Error starting consultation:', error);
@@ -873,8 +878,7 @@ const renderQueue = () => (
                   </p>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            </CardHeader><CardContent className="space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
