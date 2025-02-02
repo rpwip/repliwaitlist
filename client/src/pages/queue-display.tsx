@@ -20,6 +20,7 @@ export default function QueueDisplay() {
   const { queue, isLoading } = useQueue();
   const typedQueue = queue as QueueEntryWithWaitTime[];
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+  const [showNewVisitForm, setShowNewVisitForm] = useState(false);
 
   if (isLoading) {
     return (
@@ -36,6 +37,17 @@ export default function QueueDisplay() {
 
   const handleStartConsult = (patientId: number) => {
     setSelectedPatientId(patientId);
+    setShowNewVisitForm(true);
+  };
+
+  const handleViewPatientHistory = (patientId: number) => {
+    setSelectedPatientId(patientId);
+    setShowNewVisitForm(false);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedPatientId(null);
+    setShowNewVisitForm(false);
   };
 
   return (
@@ -78,7 +90,8 @@ export default function QueueDisplay() {
               {waitingPatients.map((patient) => (
                 <div
                   key={patient.id}
-                  className="flex items-center justify-between p-4 bg-muted rounded-lg"
+                  className="flex items-center justify-between p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80"
+                  onClick={() => handleViewPatientHistory(patient.patient.id)}
                 >
                   <div className="flex items-center space-x-4">
                     <QueueNumber
@@ -110,9 +123,9 @@ export default function QueueDisplay() {
         {selectedPatientId && (
           <PatientHistoryModal
             patientId={selectedPatientId}
-            onClose={() => setSelectedPatientId(null)}
+            onClose={handleCloseModal}
             open={!!selectedPatientId}
-            showNewVisitForm={true}
+            showNewVisitForm={showNewVisitForm}
           />
         )}
       </div>
