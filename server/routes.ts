@@ -463,7 +463,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
   
-  // Modify the queue endpoint to handle clinic-specific queues with proper logging
+  // Update the queue endpoint with proper error handling
   app.get("/api/queue/:clinicId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { clinicId } = req.params;
@@ -485,7 +485,6 @@ export function registerRoutes(app: Express): Server {
           message: 'Doctor not found'
         });
       }
-      console.log(`Found doctor: ${doctor.id}`);
 
       const [assignment] = await db
         .select()
@@ -506,9 +505,8 @@ export function registerRoutes(app: Express): Server {
           message: 'You do not have access to this clinic'
         });
       }
-      console.log(`Found clinic assignment: ${JSON.stringify(assignment)}`);
 
-      // Fetch queue entries for clinic
+      // Fetch queue entries for clinic with proper error handling
       console.log(`Fetching queue entries for clinic ${clinicId}`);
       const entries = await db
         .select({
@@ -517,7 +515,8 @@ export function registerRoutes(app: Express): Server {
           status: queueEntries.status,
           isPaid: queueEntries.isPaid,
           patientId: patients.id,
-          patientName: patients.fullName
+          fullName: patients.fullName, // Changed from patientName to fullName for consistency
+          createdAt: queueEntries.createdAt
         })
         .from(queueEntries)
         .innerJoin(patients, eq(queueEntries.patientId, patients.id))
@@ -533,39 +532,65 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(queueEntries.queueNumber);
 
-      console.log(`Found ${entries.length} queue entries`);
-
-      // If no entries found, return empty array instead of null
-      if (!entries.length) {
-        console.log(`No queue entries found for clinic ${clinicId}`);
-        return res.json([]);
+      if (!Array.isArray(entries)) {
+        console.error('Invalid queue entries response:', entries);
+        return res.status(500).json({
+          error: 'Server error',
+          message: 'Failed to fetch queue entries'
+        });
       }
 
-      // Calculate wait time with a simpler structure
-      const avgWaitTime = await calculateAverageWaitTime();
-      console.log(`Average wait time calculated: ${avgWaitTime} minutes`);
+      // Calculate wait time
+      let avgWaitTime: number;
+      try {
+        avgWaitTime = await calculateAverageWaitTime();
+        console.log(`Average wait time calculated: ${avgWaitTime} minutes`);
+      } catch (error) {
+        console.error('Error calculating wait time:', error);
+        avgWaitTime = 10; // Default to 10 minutes if calculation fails
+      }
 
-      // Format the response data with unique keys
+      // Format and validate each queue entry
+       // Type definition for a queue entry
+      /**
+       * @typedef {Object} FormattedQueueEntry
+       * @property {string} key - A unique key for React list rendering
+       * @property {number} id - The unique ID of the queue entry
+       * @property {number} queueNumber - The position of the patient in the queue
+       * @property {string} status - The current status of the queue entry
+       * @property {string} fullName - The full name of the patient
+       * @property {number} estimatedWaitTime - The estimated wait time for the patient
+       * @property {Date} createdAt - The timestamp when the queue entry was created
+      */
       const queueWithWaitTimes = entries.map((entry, index) => {
+        if (!entry || !entry.id || !entry.fullName) {
+          console.error('Invalid queue entry:', entry);
+          throw new Error('Invalid queue entry data');
+        }
+
         const formattedEntry = {
-          key: `${entry.id}`, // Ensure unique key for React
+          key: `${entry.id}`,
           id: entry.id,
           queueNumber: entry.queueNumber,
           status: entry.status,
-          patientName: entry.patientName,
-          estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
+          fullName: entry.fullName,
+          estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1)),
+          createdAt: entry.createdAt
         };
+
         console.log(`Formatted queue entry: ${JSON.stringify(formattedEntry)}`);
         return formattedEntry;
       });
 
       console.log(`Sending response with ${queueWithWaitTimes.length} entries`);
       res.json(queueWithWaitTimes);
+
     } catch (error) {
       console.error('Queue fetch error:', error);
       res.status(500).json({
         error: 'Failed to fetch queue',
-        details: error instanceof Error ? error.message : String(error)
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        details: error instanceof Error ? error.stack : undefined
       });
     }
   });
