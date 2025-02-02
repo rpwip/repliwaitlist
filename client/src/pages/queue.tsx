@@ -83,9 +83,12 @@ export default function Queue() {
     );
   }
 
-  const currentPatient = clinicQueue?.find((q) => q.status === "in-progress");
+  console.log('Selected Clinic ID:', selectedClinicId);
+  console.log('Clinic Queue Data:', clinicQueue);
+
+  const currentPatient = clinicQueue?.find(q => q.status === "in-progress");
   const waitingPatients = clinicQueue
-    ?.filter((q) => q.status === "waiting")
+    ?.filter(q => q.status === "waiting")
     .sort((a, b) => a.queueNumber - b.queueNumber) || [];
 
   console.log("Current patient:", currentPatient);
@@ -112,7 +115,7 @@ export default function Queue() {
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {clinics.map((clinic: any) => (
+              {Array.isArray(clinics) && clinics.map((clinic) => (
                 <SelectItem key={clinic.id} value={clinic.id.toString()}>
                   {clinic.name}
                 </SelectItem>
@@ -127,29 +130,30 @@ export default function Queue() {
           <Card className="p-8">
             <h2 className="text-2xl font-semibold mb-4">Waiting Patients</h2>
             <div className="space-y-4">
-              {waitingPatients.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between p-4 bg-muted rounded-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <QueueNumber
-                      number={entry.queueNumber}
-                      className="text-4xl"
-                    />
-                    <div>
-                      <p className="font-medium">{entry.fullName}</p>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4 mr-1" />
-                        <span>
-                          Est. wait: {entry.estimatedWaitTime} mins
-                        </span>
+              {waitingPatients.length > 0 ? (
+                waitingPatients.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between p-4 bg-muted rounded-lg"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <QueueNumber
+                        number={entry.queueNumber}
+                        className="text-4xl"
+                      />
+                      <div>
+                        <p className="font-medium">{entry.fullName}</p>
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 mr-1" />
+                          <span>
+                            Est. wait: {entry.estimatedWaitTime} mins
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              {waitingPatients.length === 0 && (
+                ))
+              ) : (
                 <p className="text-center text-muted-foreground">
                   No patients waiting
                 </p>
