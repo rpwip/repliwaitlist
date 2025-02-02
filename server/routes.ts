@@ -463,12 +463,14 @@ export function registerRoutes(app: Express): Server {
     }
   });
   
-  // Modify the queue endpoint to handle clinic-specific queues with proper keys
+  // Modify the queue endpoint to handle clinic-specific queues with proper logging
   app.get("/api/queue/:clinicId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { clinicId } = req.params;
 
     try {
+      console.log(`Fetching queue for clinic ${clinicId}`);
+
       // First verify the doctor has access to this clinic
       const [doctor] = await db
         .select()
@@ -477,11 +479,13 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!doctor) {
+        console.log(`Doctor not found for user ${req.user.id}`);
         return res.status(404).json({
           error: 'Not found',
           message: 'Doctor not found'
         });
       }
+      console.log(`Found doctor: ${doctor.id}`);
 
       const [assignment] = await db
         .select()
@@ -496,19 +500,21 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!assignment) {
+        console.log(`No active clinic assignment found for doctor ${doctor.id} and clinic ${clinicId}`);
         return res.status(403).json({ 
           error: 'Access denied',
           message: 'You do not have access to this clinic'
         });
       }
+      console.log(`Found clinic assignment: ${JSON.stringify(assignment)}`);
 
       // Get queue entries for the specified clinic with a simpler structure
+      console.log(`Fetching queue entries for clinic ${clinicId}`);
       const entries = await db
         .select({
           id: queueEntries.id,
           queueNumber: queueEntries.queueNumber,
           status: queueEntries.status,
-          createdAt: queueEntries.createdAt,
           isPaid: queueEntries.isPaid,
           patientId: patients.id,
           patientName: patients.fullName
@@ -527,21 +533,32 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(queueEntries.queueNumber);
 
+      console.log(`Found ${entries.length} queue entries`);
+
       // If no entries found, return empty array instead of null
       if (!entries.length) {
+        console.log(`No queue entries found for clinic ${clinicId}`);
         return res.json([]);
       }
 
       // Calculate wait time with a simpler structure
       const avgWaitTime = await calculateAverageWaitTime();
-      const queueWithWaitTimes = entries.map((entry) => ({
-        id: entry.id,
-        queueNumber: entry.queueNumber,
-        status: entry.status,
-        patientName: entry.patientName,
-        estimatedWaitTime: Math.ceil(avgWaitTime * entry.queueNumber)
-      }));
+      console.log(`Average wait time calculated: ${avgWaitTime} minutes`);
 
+      // Format the response data
+      const queueWithWaitTimes = entries.map((entry, index) => {
+        const formattedEntry = {
+          id: entry.id,
+          queueNumber: entry.queueNumber,
+          status: entry.status,
+          patientName: entry.patientName,
+          estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
+        };
+        console.log(`Formatted queue entry: ${JSON.stringify(formattedEntry)}`);
+        return formattedEntry;
+      });
+
+      console.log(`Sending response with ${queueWithWaitTimes.length} entries`);
       res.json(queueWithWaitTimes);
     } catch (error) {
       console.error('Queue fetch error:', error);
