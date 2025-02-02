@@ -2,7 +2,7 @@ import { useQueue } from "@/hooks/use-queue";
 import { Card } from "@/components/ui/card";
 import QueueNumber from "@/components/queue-number";
 import { Clock, UserRound } from "lucide-react";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -32,13 +32,12 @@ export default function QueueDisplay() {
   const currentDate = new Date();
   const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
-  // Set default clinic to first available clinic
   useEffect(() => {
-    if (clinics && clinics.length > 0) {
-      const yazhClinic = clinics.find(clinic => clinic.name === "Yazh Health Care");
-      setSelectedClinicId(yazhClinic?.id ?? clinics[0].id);
+    if (clinics && clinics.length > 0 && !selectedClinicId) {
+      const defaultClinic = clinics[0];
+      setSelectedClinicId(defaultClinic.id);
     }
-  }, [clinics]);
+  }, [clinics, selectedClinicId]);
 
   if (isError) {
     return (
@@ -53,7 +52,7 @@ export default function QueueDisplay() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || !clinics || clinics.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -79,7 +78,6 @@ export default function QueueDisplay() {
           <p className="text-xl text-muted-foreground mt-2">Queue Status</p>
         </header>
 
-        {/* Clinic Selector and Date */}
         <div className="flex items-center justify-between mb-8">
           <Select
             value={selectedClinicId?.toString()}
@@ -89,11 +87,8 @@ export default function QueueDisplay() {
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {(clinics || []).map((clinic) => (
-                <SelectItem
-                  key={clinic.id}
-                  value={clinic.id.toString()}
-                >
+              {clinics.map((clinic) => (
+                <SelectItem key={clinic.id} value={clinic.id.toString()}>
                   {clinic.name}
                 </SelectItem>
               ))}

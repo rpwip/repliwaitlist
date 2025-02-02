@@ -26,17 +26,11 @@ type QueueEntry = {
 export function useQueue() {
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-
     function connect() {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        return;
-      }
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -46,11 +40,6 @@ export function useQueue() {
         ws.onopen = () => {
           console.log('WebSocket connected');
           setIsConnected(true);
-          reconnectAttempts = 0;
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = undefined;
-          }
         };
 
         ws.onmessage = (event) => {
@@ -58,14 +47,14 @@ export function useQueue() {
             const data = JSON.parse(event.data);
             if (data.type === "QUEUE_UPDATE") {
               queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
             }
           } catch (error) {
             console.error('WebSocket message parsing error:', error);
           }
         };
 
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error);
+        ws.onerror = () => {
           setIsConnected(false);
           queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
           queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
@@ -74,18 +63,6 @@ export function useQueue() {
         ws.onclose = () => {
           console.log('WebSocket disconnected');
           setIsConnected(false);
-
-          if (reconnectAttempts < maxReconnectAttempts) {
-            const timeout = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
-            reconnectAttempts++;
-            reconnectTimeoutRef.current = setTimeout(connect, timeout);
-          } else {
-            toast({
-              title: "Connection Status",
-              description: "Using offline mode. Data will update periodically.",
-              variant: "default"
-            });
-          }
         };
 
         wsRef.current = ws;
@@ -98,60 +75,32 @@ export function useQueue() {
     connect();
 
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [toast]);
+  }, []);
 
   const queueQuery = useQuery<QueueEntry[]>({
     queryKey: ["/api/queue"],
     refetchInterval: isConnected ? false : 5000,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 5000),
-    onError: (error: Error) => {
-      console.error('Error fetching queue:', error);
-      toast({
-        title: "Queue Update Failed",
-        description: "Could not fetch latest queue data. Will retry automatically.",
-        variant: "destructive",
-      });
-    }
+    retry: 2,
+    retryDelay: 1000,
+    staleTime: 0,
+    gcTime: 0
   });
 
   const clinicsQuery = useQuery<Clinic[]>({
     queryKey: ["/api/clinics"],
-    retry: false,
+    retry: 2,
+    retryDelay: 1000,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     staleTime: 0,
-    gcTime: 0,
-    onSuccess: (data: Clinic[]) => {
-      console.log('Clinics query succeeded:', data);
-    },
-    onError: (error: Error) => {
-      console.error('Clinics query failed:', error);
-      toast({
-        title: "Error Loading Clinics",
-        description: "Failed to load clinic data. Please refresh the page.",
-        variant: "destructive",
-      });
-    }
+    gcTime: 0
   });
-
-  useEffect(() => {
-    console.log('Clinics Query State:', {
-      data: clinicsQuery.data,
-      isLoading: clinicsQuery.isLoading,
-      isError: clinicsQuery.isError,
-      error: clinicsQuery.error
-    });
-  }, [clinicsQuery.data, clinicsQuery.isLoading, clinicsQuery.isError, clinicsQuery.error]);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ queueId, status }: { queueId: number; status: string }) => {
