@@ -30,7 +30,7 @@ type Clinic = {
 };
 
 export default function QueueDisplay() {
-  const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
+  const [selectedClinicId, setSelectedClinicId] = useState<number>(15);
   const { queue, isLoading, clinics } = useQueue();
   const typedQueue = queue as QueueEntryWithWaitTime[];
   const currentDate = new Date();
@@ -65,14 +65,14 @@ export default function QueueDisplay() {
         {/* Clinic Selector and Date */}
         <div className="flex items-center justify-between mb-8">
           <Select
-            value={selectedClinicId?.toString() ?? ""}
-            onValueChange={(value) => setSelectedClinicId(value ? parseInt(value) : null)}
+            value={selectedClinicId?.toString()}
+            onValueChange={(value) => setSelectedClinicId(parseInt(value))}
           >
             <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {clinics?.map((clinic: Clinic) => (
+              {Array.isArray(clinics) && clinics.map((clinic: Clinic) => (
                 <SelectItem
                   key={clinic.id}
                   value={clinic.id.toString()}
