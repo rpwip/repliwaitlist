@@ -614,6 +614,10 @@ export function registerRoutes(app: Express): Server {
   
   // Update the queue endpoint with proper error handling
   app.get("/api/queue/:clinicId", async (req, res) => {
+    console.log('[API] Queue request received', {
+      clinicId: req.params.clinicId,
+      authenticated: req.isAuthenticated()
+    });
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { clinicId } = req.params;
 

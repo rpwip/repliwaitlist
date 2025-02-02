@@ -250,7 +250,11 @@ export default function DoctorPortal() {
   const { data: queueData, refetch: refetchQueue } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
-      if (!selectedClinicId) return null;
+      console.log('[DoctorPortal] Fetching queue data for clinic:', selectedClinicId);
+      if (!selectedClinicId) {
+        console.log('[DoctorPortal] No clinic selected, skipping queue fetch');
+        return null;
+      }
       const response = await fetch(`/api/queue/${selectedClinicId}`, {
         credentials: 'include'
       });
