@@ -452,6 +452,7 @@ export function registerRoutes(app: Express): Server {
           patientId: patient.id,
           queueNumber: nextQueueNumber,
           status: "pending", // Will be set to "waiting" after payment
+          clinicId: result.data.clinicId, // Add the clinicId from request
         })
         .returning();
 
