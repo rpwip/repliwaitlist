@@ -139,7 +139,6 @@ type TopBrandData = {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
-// Update the QueueEntry type to match queue-display.tsx
 type QueueEntry = {
   id: number;
   queueNumber: number;
@@ -248,7 +247,6 @@ export default function DoctorPortal() {
     enabled: view === "patients" && !!user?.id,
   });
 
-  // Update the queue data fetching to properly handle patient IDs
   const { data: queueData, refetch: refetchQueue } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
@@ -257,25 +255,27 @@ export default function DoctorPortal() {
       if (!response.ok) throw new Error("Failed to fetch queue");
       const data = await response.json();
 
-      // Transform the data to match the QueueEntry type
-      return data.filter((entry: any) => entry.status === "waiting").map((entry: any) => ({
-        id: entry.id,
-        queueNumber: entry.queueNumber,
-        status: entry.status,
-        patient: {
-          id: entry.patient?.id || entry.patientId,
-          fullName: entry.patient?.fullName || entry.fullName
-        },
-        estimatedWaitTime: entry.estimatedWaitTime || 0,
-        clinicId: selectedClinicId,
-        vitals: entry.vitals || {
-          bp: 'N/A',
-          temperature: 'N/A',
-          pulse: 'N/A',
-          spo2: 'N/A'
-        },
-        visitReason: entry.visitReason || ''
-      }));
+      // Transform and filter the data to match the QueueEntry type
+      return data
+        .filter((entry: any) => entry.status === "waiting")
+        .map((entry: any) => ({
+          id: entry.id,
+          queueNumber: entry.queueNumber,
+          status: entry.status,
+          patient: {
+            id: entry.patient?.id || entry.patientId,
+            fullName: entry.patient?.fullName || "Unknown Patient"
+          },
+          estimatedWaitTime: entry.estimatedTime || 0,
+          clinicId: selectedClinicId,
+          vitals: entry.vitals || {
+            bp: 'N/A',
+            temperature: 'N/A',
+            pulse: 'N/A',
+            spo2: 'N/A'
+          },
+          visitReason: entry.visitReason || ''
+        }));
     },
     enabled: !!selectedClinicId,
   });
@@ -293,14 +293,31 @@ export default function DoctorPortal() {
 
   const startConsultation = useMutation({
     mutationFn: async (queueId: number) => {
-      const response = await fetch(`/api/queue/${queueId}/start`, { method: "POST" });
+      const response = await fetch(`/api/queue/${queueId}/start`, {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       if (!response.ok) throw new Error("Failed to start consultation");
       return response.json();
     },
     onSuccess: () => {
       refetchQueue();
       refetchCompleted();
+      toast({
+        title: "Success",
+        description: "Started consultation with patient",
+      });
     },
+    onError: (error) => {
+      console.error("Failed to start consultation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start consultation. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
 
   const skipPatient = useMutation({
@@ -342,11 +359,8 @@ export default function DoctorPortal() {
     setShowNewVisitModal(true);
   };
   
-  // Update the handleStartConsultation function
-  const handleStartConsultation = (entry: QueueEntry) => {
+  const handleStartConsultation = async (entry: QueueEntry) => {
     try {
-      console.log("Starting consultation for:", entry);
-
       if (!entry.patient?.id) {
         toast({
           title: "Error",
@@ -356,28 +370,11 @@ export default function DoctorPortal() {
         return;
       }
 
-      // Update state for modal
       setSelectedPatientId(entry.patient.id);
       setCurrentQueueEntry(entry);
       setShowNewVisitModal(true);
 
-      // Make the API call to start consultation
-      startConsultation.mutate(entry.id, {
-        onSuccess: () => {
-          toast({
-            title: "Success",
-            description: "Started consultation with patient",
-          });
-        },
-        onError: (error) => {
-          console.error("Failed to start consultation:", error);
-          toast({
-            title: "Error",
-            description: "Failed to start consultation. Please try again.",
-            variant: "destructive",
-          });
-        }
-      });
+      await startConsultation.mutateAsync(entry.id);
     } catch (error) {
       console.error('Error starting consultation:', error);
       toast({
@@ -735,7 +732,6 @@ export default function DoctorPortal() {
     </div>
   );
   
-// Update the queue rendering section
 const renderQueue = () => (
   <div className="space-y-6">
     {/* Clinic Selector and Date */}
@@ -898,8 +894,350 @@ const renderQueue = () => (
       </Card>
     </div>
 
-    {/* Completed Patients Section */}
-    <Card>
+    {/* Completed Patients Section */}<Card>
+      <CardHeader>
+        <CardTitle>Patients Seen Today</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {completedPatients?.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">
+              No patients completed today
+            </p>
+          ) : (
+            completedPatients?.map((entry: QueueEntry) => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">
+                      {entry.patient?.fullName || 'Unknown Patient'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Queue #{entry.queueNumber}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleNewVisit(entry)}
+                >
+                  View Details
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* Patient History Modal */}
+    {selectedPatientId && (
+      <PatientHistoryModal
+        open={!!selectedPatientId}
+        onClose={() => {
+          setSelectedPatientId(null);
+          setShowNewVisitModal(false);
+          setCurrentQueueEntry(null);
+        }}
+        patientId={selectedPatientId}
+        showNewVisitForm={showNewVisitModal}
+        doctorId={user?.id}
+        clinicId={selectedClinicId || undefined}
+      />
+    )}
+  </div>
+);
+
+  const renderClinics = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {clinicsData?.map((data) => (
+          <Card key={data.clinic.id} className="hover:bg-accent/50 transition-colors">
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{data.clinic.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {data.patientCount} patients
+                  </p>
+                </div>
+              </div>
+            </CardHeader><CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.address}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.contactNumber}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.email}</span>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-2">Recent Patients</h4>
+                <div className="space-y-2">
+                  {data.recentPatients?.slice(0, 3).map((patient) => (
+                    <div key={patient.id} className="flex items-center justify-between text-sm">
+                      <span>{patient.fullName}</span>
+                      <span className="text-muted-foreground">
+                        {format(new Date(patient.lastVisit), 'MMM d')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" className="w-full">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Schedule
+                </Button>
+                <Button variant="outline" size="sm" className="w-full">
+                  <UserRound className="h-4 w-4 mr-2" />
+                  Patients
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderPatients = () => (
+    <div className="space-y-6">
+      {/* Search Box */}
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, phone number..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Patients Grid */}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {patientsData?.patients
+          .filter(data => {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+              data.patient.fullName.toLowerCase().includes(searchLower) ||
+              (data.patient.mobile && data.patient.mobile.includes(searchTerm))
+            );
+          })
+          // Remove duplicates based on combination of name, mobile, and DOB
+          .filter((data, index, self) => 
+            index === self.findIndex((t) => (
+              t.patient.fullName === data.patient.fullName &&
+              t.patient.mobile === data.patient.mobile &&
+              t.patient.dateOfBirth === data.patient.dateOfBirth
+            ))
+          )
+          .map((data) => (
+            <Card 
+              key={`${data.patient.id}-${data.patient.mobile}`}
+              className="hover:bg-accent/50 transition-colors cursor-pointer"
+              onClick={() => {
+                console.log("Patient card clicked:", data.patient.id);
+                setSelectedPatientId(data.patient.id);
+                setShowNewVisitModal(false);
+              }}
+            >
+              <CardHeader>
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">{data.patient.fullName}</CardTitle>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        DOB: {format(new Date(data.patient.dateOfBirth), 'MMM dd, yyyy')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {data.patient.mobile || 'No phone number'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Last Visit:</span>
+                  <span className="font-medium">
+                    {data.lastVisit ? format(new Date(data.lastVisit), 'MMM dd, yyyy') : 'No visits yet'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Total Visits:</span>
+                  <span className="font-medium">{data.totalVisits || 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Primary Clinic:</span>
+                  <span className="font-medium">
+                    {data.clinic?.name || 'Not assigned'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+      </div>
+
+      {/* Pagination */}
+      {patientsData?.pagination && (
+        <div className="flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {patientsData.pagination.pages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(page => Math.min(patientsData.pagination.pages, page + 1))}
+            disabled={currentPage === patientsData.pagination.pages}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+
+      {/* Patient History Modal */}
+      {selectedPatientId && (
+        <PatientHistoryModal
+          patientId={selectedPatientId}
+          onClose={() => setSelectedPatientId(null)}
+          open={!!selectedPatientId}
+          showNewVisitForm={showNewVisitModal}
+        />
+      )}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card px-6 py-4">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <h1 className="text-2xl font-semibold">Doctor Portal</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Dr. {user?.username}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="grid md:grid-cols-12 gap-6">
+          {/* Left Sidebar - Navigation */}
+          <div className="md:col-span-3 space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <nav className="space-y-2">
+                  <Button
+                    variant={view === "overview" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("overview")}
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Overview
+                  </Button>
+                  <Button
+                    variant={view === "patients" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("patients")}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Patients
+                  </Button>
+                  <Button
+                    variant={view === "queue" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("queue")}
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Queue
+                  </Button>
+                  <Button
+                    variant={view === "prescriptions" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("prescriptions")}
+                  >
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Prescriptions
+                  </Button>
+                </nav>
+              </CardContent>
+            </Card>
+
+            {/* Recent Patients */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Recent Patients</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {dashboardData?.recentPatients?.map((patient, index) => (
+                    <div
+                      key={`sidebar-recent-${patient.id}-${index}`}
+                      className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
+                      onClick={() => setSelectedPatientId(patient.id)}
+                    >
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <UserRound className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium">{patient.fullName}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content */}
+          <div className="md:col-span-9">
+            {view === "overview" && renderOverview()}
+            {view === "prescriptions" && renderPrescriptions()}
+            {view === "queue" && renderQueue()}
+            {view === "patients" && renderPatients()}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}<Card>
       <CardHeader>
         <CardTitle>Patients Seen Today</CardTitle>
       </CardHeader>
