@@ -77,6 +77,7 @@ export function useQueue() {
 
   const registerPatientMutation = useMutation({
     mutationFn: async (data: RegistrationData) => {
+      console.log('Registering patient with data:', data);
       const res = await apiRequest("POST", "/api/register-patient", data);
       if (!res.ok) {
         const error = await res.text();

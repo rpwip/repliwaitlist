@@ -92,18 +92,21 @@ export default function PatientVerificationForm() {
       });
     } catch (error) {
       setIsNewPatient(true);
-      // Reset form with only mobile number from verification
+      const mobileNumber = data.mobile;
       registrationForm.reset({
         fullName: "",
         email: "",
-        mobile: data.mobile,
+        mobile: mobileNumber,
+      });
+      toast({
+        title: "New Patient",
+        description: "Please complete the registration form.",
       });
     }
   };
 
   const handleRegistration = async (data: PatientFormData) => {
     try {
-      console.log("Submitting registration with data:", data);
       const payload = {
         fullName: data.fullName,
         email: data.email || null,
@@ -111,7 +114,6 @@ export default function PatientVerificationForm() {
       };
 
       const result = await registerPatient(payload);
-      console.log("Registration result:", result);
 
       if (result.patient && result.queueEntry) {
         setRegistrationData(result);
@@ -201,19 +203,23 @@ export default function PatientVerificationForm() {
   if (!isNewPatient) {
     return (
       <Form {...verificationForm}>
-        <form
-          onSubmit={verificationForm.handleSubmit(handleVerification)}
-          className="space-y-6"
-        >
+        <form onSubmit={verificationForm.handleSubmit(handleVerification)} className="space-y-6">
           <FormField
             control={verificationForm.control}
             name="mobile"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Mobile Number</FormLabel>
+                <FormLabel className="flex items-baseline gap-2">
+                  <span>Mobile Number</span>
+                  {language !== "en" && (
+                    <span className="text-muted-foreground">
+                      ({getTranslation("mobile", language)})
+                    </span>
+                  )}
+                </FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Enter your registered mobile number"
+                    placeholder={getTranslation("mobilePlaceholder", language)}
                     {...field}
                   />
                 </FormControl>
@@ -221,7 +227,6 @@ export default function PatientVerificationForm() {
               </FormItem>
             )}
           />
-
           <Button type="submit" className="w-full" disabled={isVerifying}>
             {isVerifying ? (
               <>
@@ -285,9 +290,6 @@ export default function PatientVerificationForm() {
                 />
               </FormControl>
               <FormMessage />
-              <p className="text-xs text-muted-foreground">
-                Email is required to access the patient portal later
-              </p>
             </FormItem>
           )}
         />
