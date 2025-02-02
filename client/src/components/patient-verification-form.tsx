@@ -65,7 +65,8 @@ export default function PatientVerificationForm() {
       setFoundPatients([]);
       setSelectedPatient(null);
 
-      if (!response) {
+      // Handle both null response and 404 status
+      if (!response || response.status === 404) {
         console.log("No patient found, preparing registration form");
         setIsNewPatient(true);
 
