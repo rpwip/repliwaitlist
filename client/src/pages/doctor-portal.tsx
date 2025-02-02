@@ -124,6 +124,20 @@ type TopBrandData = {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// Add type definition for queue entry
+type QueueEntry = {
+  key: string;
+  id: number;
+  queueNumber: number;
+  status: string;
+  fullName: string;
+  estimatedWaitTime: number;
+  createdAt: string;
+  patient?: {
+    fullName: string;
+  };
+};
+
 export default function DoctorPortal() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -625,42 +639,50 @@ export default function DoctorPortal() {
     </div>
   );
   
-    const renderQueue = () => (
-    <div className="space-y-6">
-      {/* Clinic Selector and Date */}
-      <div className="flex items-center justify-between">
-        <Select
-          value={selectedClinicId?.toString()}
-          onValueChange={(value) => setSelectedClinicId(parseInt(value))}
-        >
-          <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="Select clinic" />
-          </SelectTrigger>
-          <SelectContent>
-            {clinicsData?.map((clinic) => (
-              <SelectItem
-                key={clinic.clinic.id}
-                value={clinic.clinic.id.toString()}
-              >
-                {clinic.clinic.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="text-lg font-medium">{format(new Date(), "EEEE, dd MMMM yyyy")}</span>
-      </div>
+// Update the renderQueue function with proper type safety and loading states
+const renderQueue = () => (
+  <div className="space-y-6">
+    {/* Clinic Selector and Date */}
+    <div className="flex items-center justify-between">
+      <Select
+        value={selectedClinicId?.toString()}
+        onValueChange={(value) => setSelectedClinicId(parseInt(value))}
+      >
+        <SelectTrigger className="w-[280px]">
+          <SelectValue placeholder="Select clinic" />
+        </SelectTrigger>
+        <SelectContent>
+          {clinicsData?.map((clinic) => (
+            <SelectItem
+              key={clinic.clinic.id}
+              value={clinic.clinic.id.toString()}
+            >
+              {clinic.clinic.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <span className="text-lg font-medium">{format(new Date(), "EEEE, dd MMMM yyyy")}</span>
+    </div>
 
-      {/* Queue and Patient Details Grid */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Left Side - Queue List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Queue</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {queueData?.map((entry: any) => (
+    {/* Queue and Patient Details Grid */}
+    <div className="grid md:grid-cols-2 gap-6">
+      {/* Left Side - Queue List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Current Queue</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!queueData ? (
+            <div className="flex items-center justify-center p-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : queueData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">No patients in queue</p>
+          ) : (
+            queueData.map((entry: QueueEntry) => (
               <div
-                key={entry.id}
+                key={entry.key}
                 className="flex items-center justify-between p-4 border rounded-lg"
               >
                 <div className="flex items-center space-x-4">
@@ -669,7 +691,7 @@ export default function DoctorPortal() {
                   </div>
                   <div>
                     <p className="font-medium">
-                      #{entry.queueNumber} - {entry.patient.fullName}
+                      #{entry.queueNumber} - {entry.fullName || entry.patient?.fullName}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Waiting time: {entry.estimatedWaitTime}min
@@ -677,7 +699,7 @@ export default function DoctorPortal() {
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                   <Button 
+                  <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => handleStartConsultation(entry)}
@@ -693,139 +715,81 @@ export default function DoctorPortal() {
                   </Button>
                 </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Right Side - Current Patient Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Patient Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {currentQueueEntry ? (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <UserRound className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-medium">{currentQueueEntry.patient.fullName}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Queue #{currentQueueEntry.queueNumber}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Reason for Visit</h4>
-                  <p>{currentQueueEntry.visitReason || 'Not specified'}</p>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Vital Signs</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Blood Pressure</p>
-                      <p>{currentQueueEntry.vitals?.bp || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Temperature</p>
-                      <p>{currentQueueEntry.vitals?.temperature || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Pulse</p>
-                      <p>{currentQueueEntry.vitals?.pulse || 'N/A'} bpm</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">SpO2</p>
-                      <p>{currentQueueEntry.vitals?.spo2 || 'N/A'}%</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex space-x-2 mt-4">
-                 <Button 
-                    className="flex-1"
-                    onClick={() => handleNewVisit(currentQueueEntry)}
-                  >
-                    Start Consult
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => handleCompleteConsultation(currentQueueEntry.id)}
-                  >
-                    Complete
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No patient currently in consultation</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Previously Seen Patients */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Previously Seen Patients Today</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {completedPatients?.map((patient: any) => (
-              <div
-                key={patient.id}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <UserRound className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium">#{patient.queueNumber} - {patient.patient.fullName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Seen at: {format(new Date(patient.completedAt), 'HH:mm')}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedPatientId(patient.patientId)}
-                >
-                  View History
-                </Button>
-              </div>
-            ))}
-          </div>
+            ))
+          )}
         </CardContent>
       </Card>
 
-         {/* Patient History Modal */}
-      {selectedPatientId && (
-        <PatientHistoryModal
-          open={!!selectedPatientId}
-          onClose={() => setSelectedPatientId(null)}
-          patientId={selectedPatientId}
-        />
-      )}
-
-       {/* New Visit Record Modal */}
-      {showNewVisitModal && currentQueueEntry && (
-        <NewVisitRecordModal
-          open={showNewVisitModal}
-          onClose={() => setShowNewVisitModal(false)}
-          patientId={currentQueueEntry.patientId}
-          doctorId={user?.id || 0}
-          clinicId={selectedClinicId || 0}
-          vitals={currentQueueEntry.vitals}
-          visitReason={currentQueueEntry.visitReason}
-        />
-      )}
+      {/* Right Side - Current Patient Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Patient Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {currentQueueEntry ? (
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserRound className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium">{currentQueueEntry.patient.fullName}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Queue #{currentQueueEntry.queueNumber}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h4 className="font-medium">Reason for Visit</h4>
+                <p>{currentQueueEntry.visitReason || 'Not specified'}</p>
+              </div>
+              <div className="space-y-2">
+                <h4 className="font-medium">Vital Signs</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Blood Pressure</p>
+                    <p>{currentQueueEntry.vitals?.bp || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Temperature</p>
+                    <p>{currentQueueEntry.vitals?.temperature || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pulse</p>
+                    <p>{currentQueueEntry.vitals?.pulse || 'N/A'} bpm</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">SpO2</p>
+                    <p>{currentQueueEntry.vitals?.spo2 || 'N/A'}%</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex space-x-2 mt-4">
+               <Button 
+                  className="flex-1"
+                  onClick={() => handleNewVisit(currentQueueEntry)}
+                >
+                  Start Consult
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => handleCompleteConsultation(currentQueueEntry.id)}
+                >
+                  Complete
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No patient currently in consultation</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
-  );
-
+  </div>
+);
 
   const renderClinics = () => (
     <div className="space-y-6">
