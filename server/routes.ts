@@ -428,16 +428,18 @@ export function registerRoutes(app: Express): Server {
 
   app.get("/api/queue", async (_req, res) => {
     try {
+      console.log('Fetching queue entries...');
       const avgWaitTime = await calculateAverageWaitTime();
       const entries = await db
         .select({
           id: queueEntries.id,
           queueNumber: queueEntries.queueNumber,
           status: queueEntries.status,
-          isPaid: queueEntries.isPaid,
-          createdAt: queueEntries.createdAt,
-          patientId: queueEntries.patientId,
-          patient: patients
+          clinicId: queueEntries.clinicId,
+          patient: {
+            id: patients.id,
+            fullName: patients.fullName
+          }
         })
         .from(queueEntries)
         .innerJoin(patients, eq(queueEntries.patientId, patients.id))
@@ -452,19 +454,21 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(queueEntries.queueNumber);
 
+      console.log('Found queue entries:', entries.length);
+
       // Calculate estimated wait time for each patient
       const queueWithWaitTimes = entries.map((entry, index) => ({
         ...entry,
         estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
       }));
 
-      // Check and send notifications if needed
-      await checkAndSendNotifications(avgWaitTime);
-
       res.json(queueWithWaitTimes);
     } catch (error) {
       console.error('Queue fetch error:', error);
-      res.status(500).send("Failed to fetch queue");
+      res.status(500).json({
+        error: 'Failed to fetch queue',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
     }
   });
   
