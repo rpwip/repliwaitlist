@@ -28,6 +28,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface PatientHistoryModalProps {
   patientId: number | null;
@@ -51,6 +56,47 @@ type MedicationSuggestion = {
   frequencyRecommendation: string;
 };
 
+type Vitals = {
+  bloodPressure: string;
+  heartRate: string;
+  temperature: string;
+  weight: string;
+  height: string;
+  oxygenSaturation: string;
+};
+
+type LabOrder = {
+  name: string;
+  reason: string;
+  urgency: "routine" | "urgent" | "stat";
+};
+
+const visitRecordSchema = z.object({
+  vitals: z.object({
+    bloodPressure: z.string(),
+    heartRate: z.string(),
+    temperature: z.string(),
+    weight: z.string(),
+    height: z.string(),
+    oxygenSaturation: z.string(),
+  }),
+  symptoms: z.string(),
+  diagnosis: z.string(),
+  prescriptions: z.array(z.object({
+    brandName: z.string(),
+    dosage: z.string(),
+    frequency: z.string(),
+    duration: z.string(),
+  })),
+  labOrders: z.array(z.object({
+    name: z.string(),
+    reason: z.string(),
+    urgency: z.enum(["routine", "urgent", "stat"]),
+  })),
+  comments: z.string(),
+});
+
+
 export function PatientHistoryModal({ 
   patientId, 
   onClose, 
@@ -59,9 +105,27 @@ export function PatientHistoryModal({
 }: PatientHistoryModalProps) {
   const { toast } = useToast();
   const [selectedDisease, setSelectedDisease] = useState<string>("");
-  const [customDisease, setCustomDisease] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [comments, setComments] = useState<string>("");
+  const [symptoms, setSymptoms] = useState<string>("");
+
+  const form = useForm<z.infer<typeof visitRecordSchema>>({
+    resolver: zodResolver(visitRecordSchema),
+    defaultValues: {
+      vitals: {
+        bloodPressure: "",
+        heartRate: "",
+        temperature: "",
+        weight: "",
+        height: "",
+        oxygenSaturation: "",
+      },
+      symptoms: "",
+      diagnosis: "",
+      prescriptions: [],
+      labOrders: [],
+      comments: "",
+    },
+  });
 
   const { data: history, isLoading, error } = useQuery({
     queryKey: ["/api/doctor/patient-history", patientId],
@@ -98,6 +162,17 @@ export function PatientHistoryModal({
     enabled: !!selectedDisease,
   });
 
+    const { data: diagnosisSuggestions } = useQuery({
+    queryKey: ["/api/diagnosis-suggestions", symptoms],
+    queryFn: async () => {
+      if (!symptoms) return [];
+      const response = await fetch(`/api/diagnosis-suggestions?symptoms=${encodeURIComponent(symptoms)}`);
+      if (!response.ok) throw new Error("Failed to fetch diagnosis suggestions");
+      return response.json();
+    },
+    enabled: !!symptoms,
+  });
+  
   const updateDiagnosis = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const response = await fetch(`/api/diagnoses/${id}`, {
@@ -116,26 +191,36 @@ export function PatientHistoryModal({
     },
   });
 
-  const addNewVisit = useMutation({
-    mutationFn: async (visitData: any) => {
+
+  const saveVisitRecord = useMutation({
+    mutationFn: async (data: z.infer<typeof visitRecordSchema>) => {
       const response = await fetch("/api/visits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(visitData),
+        body: JSON.stringify({
+          patientId,
+          ...data,
+          visitedAt: new Date().toISOString(),
+        }),
       });
-      if (!response.ok) throw new Error("Failed to add new visit");
+      if (!response.ok) throw new Error("Failed to save visit record");
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Visit record added successfully",
+        description: "Visit record saved successfully",
       });
       onClose();
     },
   });
-
+  
   if (!patientId) return null;
+
+    const handleSymptomsChange = (value: string) => {
+    setSymptoms(value);
+    form.setValue("symptoms", value);
+  };
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
@@ -359,108 +444,298 @@ export function PatientHistoryModal({
           </div>
 
           {showNewVisitForm && (
-            <div className="pl-4">
+            <div className="pl-4 overflow-y-auto">
               <h3 className="text-lg font-semibold mb-4">New Visit Record</h3>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit((data) => saveVisitRecord.mutate(data))} className="space-y-6">
+                  {/* Vitals Section */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Vitals</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="vitals.bloodPressure"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Blood Pressure</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="120/80" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                       <FormField
+                        control={form.control}
+                        name="vitals.heartRate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Heart Rate</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="72 bpm" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                        <FormField
+                        control={form.control}
+                        name="vitals.temperature"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Temperature</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="98.6 F" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                       <FormField
+                        control={form.control}
+                        name="vitals.weight"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Weight</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="150 lbs" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                       <FormField
+                        control={form.control}
+                        name="vitals.height"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Height</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="5'10" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                       <FormField
+                        control={form.control}
+                        name="vitals.oxygenSaturation"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Oxygen Saturation</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="98%" />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
 
-              <div className="space-y-4 mb-6">
-                <h4 className="font-medium">Common Health Issues</h4>
-                <div className="flex flex-wrap gap-2">
-                  {commonDiseases?.slice(0, 6).map((disease: CommonDisease) => (
-                    <Button
-                      key={disease.id}
-                      variant={selectedDisease === disease.id ? "default" : "outline"}
-                      onClick={() => setSelectedDisease(disease.id)}
-                      size="sm"
-                    >
-                      {disease.name}
-                    </Button>
-                  ))}
-                </div>
+                  <Separator />
 
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search other conditions..."
-                    className="pl-8"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
+                  {/* Symptoms Section */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Symptoms</h4>
+                    <Textarea
+                      placeholder="Enter patient symptoms..."
+                      value={symptoms}
+                      onChange={(e) => handleSymptomsChange(e.target.value)}
+                      className="min-h-[100px]"
+                    />
+                    {diagnosisSuggestions?.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium">Suggested Diagnoses:</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {diagnosisSuggestions.map((suggestion: any) => (
+                            <Button
+                              key={suggestion.id}
+                              variant={selectedDisease === suggestion.id ? "default" : "outline"}
+                              onClick={() => {
+                                setSelectedDisease(suggestion.id);
+                                form.setValue("diagnosis", suggestion.name);
+                              }}
+                              size="sm"
+                            >
+                              {suggestion.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-                {searchTerm && (
-                  <div className="border rounded-md p-2">
-                    {commonDiseases?.map((disease: CommonDisease) => (
-                      <div
-                        key={disease.id}
-                        className="p-2 hover:bg-accent cursor-pointer"
+                  <Separator />
+
+                  {/* Medications Section */}
+                  {selectedDisease && (
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Recommended Medications</h4>
+                      <div className="space-y-2">
+                        {medicationSuggestions?.map((med: MedicationSuggestion) => (
+                          <div
+                            key={med.brandName}
+                            className="border rounded-lg p-3 hover:bg-accent/50 cursor-pointer"
+                            onClick={() => {
+                              const currentPrescriptions = form.getValues("prescriptions");
+                              form.setValue("prescriptions", [
+                                ...currentPrescriptions,
+                                {
+                                  brandName: med.brandName,
+                                  dosage: med.dosageRecommendation,
+                                  frequency: med.frequencyRecommendation,
+                                  duration: "7 days", // Default duration
+                                },
+                              ]);
+                            }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{med.brandName}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {med.genericName}
+                                </p>
+                              </div>
+                              {med.isCloudCarePartner && (
+                                <Badge variant="secondary">CloudCare Partner</Badge>
+                              )}
+                            </div>
+                            <div className="mt-2 text-sm">
+                              <p>Dosage: {med.dosageRecommendation}</p>
+                              <p>Frequency: {med.frequencyRecommendation}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Selected Prescriptions */}
+                  <div className="space-y-2">
+                    {form.watch("prescriptions").map((prescription, index) => (
+                      <div key={index} className="flex items-center space-x-2 p-2 border rounded">
+                        <div className="flex-1">
+                          <p className="font-medium">{prescription.brandName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {prescription.dosage} • {prescription.frequency} • {prescription.duration}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const current = form.getValues("prescriptions");
+                            form.setValue(
+                              "prescriptions",
+                              current.filter((_, i) => i !== index)
+                            );
+                          }}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Separator />
+
+                  {/* Lab Orders Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Lab Orders</h4>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => {
-                          setSelectedDisease(disease.id);
-                          setSearchTerm("");
+                          const current = form.getValues("labOrders");
+                          form.setValue("labOrders", [
+                            ...current,
+                            { name: "", reason: "", urgency: "routine" },
+                          ]);
                         }}
                       >
-                        {disease.name}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {selectedDisease && (
-                <div className="space-y-4 mb-6">
-                  <h4 className="font-medium">Recommended Medications</h4>
-                  <div className="space-y-2">
-                    {medicationSuggestions?.map((med: MedicationSuggestion) => (
-                      <div
-                        key={med.brandName}
-                        className="border rounded-lg p-3 hover:bg-accent/50"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{med.brandName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {med.genericName}
-                            </p>
-                          </div>
-                          {med.isCloudCarePartner && (
-                            <Badge variant="secondary">CloudCare Partner</Badge>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Lab Order
+                      </Button>
+                    </div>
+                    {form.watch("labOrders").map((_, index) => (
+                      <div key={index} className="space-y-2 p-4 border rounded">
+                        <FormField
+                          control={form.control}
+                          name={`labOrders.${index}.name`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Test Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
                           )}
-                        </div>
-                        <div className="mt-2 text-sm">
-                          <p>Dosage: {med.dosageRecommendation}</p>
-                          <p>Frequency: {med.frequencyRecommendation}</p>
-                        </div>
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`labOrders.${index}.reason`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Reason</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`labOrders.${index}.urgency`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Urgency</FormLabel>
+                              <FormControl>
+                                <select
+                                  {...field}
+                                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                                >
+                                  <option value="routine">Routine</option>
+                                  <option value="urgent">Urgent</option>
+                                  <option value="stat">STAT</option>
+                                </select>
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
 
-              <div className="space-y-2 mb-6">
-                <h4 className="font-medium">Visit Notes</h4>
-                <Textarea
-                  placeholder="Add any additional notes or observations..."
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  className="min-h-[100px]"
-                />
-              </div>
+                  <Separator />
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    addNewVisit.mutate({
-                      patientId,
-                      diagnosis: selectedDisease,
-                      comments,
-                    });
-                  }}
-                >
-                  Save Visit Record
-                </Button>
-              </div>
+                  {/* Additional Comments */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Additional Comments</h4>
+                    <FormField
+                      control={form.control}
+                      name="comments"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Textarea
+                              {...field}
+                              placeholder="Add any additional notes or observations..."
+                              className="min-h-[100px]"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Form Actions */}
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={onClose}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      Save Visit Record
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </div>
           )}
         </div>

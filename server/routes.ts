@@ -1428,6 +1428,117 @@ app.get("/api/doctor/top-brands", async (req, res) => {
       res.status(500).send("Failed to create visit record");
     }
   });
+  
+// Add new endpoints after the existing ones
+  app.get("/api/diagnosis-suggestions", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { symptoms } = req.query;
+
+    try {
+      // Note: In a production environment, this would call an external API
+      // For demo purposes, returning mock suggestions based on common symptoms
+      const suggestions = [
+        { id: "fever", name: "Viral Fever", confidence: 0.85 },
+        { id: "cold", name: "Common Cold", confidence: 0.75 },
+        { id: "flu", name: "Influenza", confidence: 0.70 },
+        { id: "allergies", name: "Seasonal Allergies", confidence: 0.65 }
+      ].filter(s => 
+        symptoms ? s.name.toLowerCase().includes((symptoms as string).toLowerCase()) : true
+      );
+
+      res.json(suggestions);
+    } catch (error) {
+      console.error('Error fetching diagnosis suggestions:', error);
+      res.status(500).send("Failed to fetch diagnosis suggestions");
+    }
+  });
+
+  // Enhanced visit record creation endpoint
+  app.post("/api/visits", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    try {
+      const [doctor] = await db
+        .select()
+        .from(doctors)
+        .where(eq(doctors.userId, req.user.id))
+        .limit(1);
+
+      if (!doctor) {
+        return res.status(404).send("Doctor not found");
+      }
+
+      // Start a transaction to ensure all related records are created atomically
+      const visitRecord = await db.transaction(async (tx) => {
+        // Create the visit record
+        const [visit] = await tx
+          .insert(visitRecords)
+          .values({
+            patientId: req.body.patientId,
+            doctorId: doctor.id,
+            symptoms: req.body.symptoms,
+            diagnosis: req.body.diagnosis,
+            vitals: req.body.vitals,
+            comments: req.body.comments,
+            visitedAt: new Date(),
+          })
+          .returning();
+
+        // Create diagnosis record if provided
+        if (req.body.diagnosis) {
+          await tx
+            .insert(diagnoses)
+            .values({
+              patientId: req.body.patientId,
+              doctorId: doctor.id,
+              condition: req.body.diagnosis,
+              status: "Active",
+              notes: req.body.comments,
+              diagnosedAt: new Date(),
+            });
+        }
+
+        // Create prescription records if provided
+        if (req.body.prescriptions?.length > 0) {
+          await tx
+            .insert(prescriptions)
+            .values({
+              patientId: req.body.patientId,
+              doctorId: doctor.id,
+              medications: req.body.prescriptions,
+              isActive: true,
+              instructions: req.body.comments,
+              createdAt: new Date(),
+            });
+        }
+
+        // Create lab order records if provided
+        // Note: Assuming you have a labOrders table in your schema
+        if (req.body.labOrders?.length > 0) {
+          for (const order of req.body.labOrders) {
+            await tx
+              .insert(labOrders)
+              .values({
+                patientId: req.body.patientId,
+                doctorId: doctor.id,
+                testName: order.name,
+                reason: order.reason,
+                urgency: order.urgency,
+                status: "pending",
+                orderedAt: new Date(),
+              });
+          }
+        }
+
+        return visit;
+      });
+
+      res.status(201).json(visitRecord);
+    } catch (error) {
+      console.error('Error creating visit record:', error);
+      res.status(500).send("Failed to create visit record");
+    }
+  });
 
   return httpServer;
 }
