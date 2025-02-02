@@ -462,25 +462,39 @@ export function registerRoutes(app: Express): Server {
     }
   });
   
-  // Modify the queue endpoint to handle clinic-specific queues
+  // Modify the queue endpoint to handle clinic-specific queues with proper keys
   app.get("/api/queue/:clinicId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { clinicId } = req.params;
 
     try {
       // First verify the doctor has access to this clinic
-      const [doctorClinic] = await db
+      const [doctor] = await db
+        .select()
+        .from(doctors)
+        .where(eq(doctors.userId, req.user.id))
+        .limit(1);
+
+      if (!doctor) {
+        return res.status(404).json({
+          error: 'Not found',
+          message: 'Doctor not found'
+        });
+      }
+
+      const [assignment] = await db
         .select()
         .from(doctorClinicAssignments)
         .where(
           and(
+            eq(doctorClinicAssignments.doctorId, doctor.id),
             eq(doctorClinicAssignments.clinicId, parseInt(clinicId)),
             eq(doctorClinicAssignments.isActive, true)
           )
         )
         .limit(1);
 
-      if (!doctorClinic) {
+      if (!assignment) {
         return res.status(403).json({ 
           error: 'Access denied',
           message: 'You do not have access to this clinic'
@@ -490,20 +504,16 @@ export function registerRoutes(app: Express): Server {
       // Get queue entries for the specified clinic
       const entries = await db
         .select({
-          queueEntry: {
-            id: queueEntries.id,
-            queueNumber: queueEntries.queueNumber,
-            status: queueEntries.status,
-            createdAt: queueEntries.createdAt,
-            visitReason: queueEntries.visitReason,
-            vitals: queueEntries.vitals
-          },
-          patient: {
-            id: patients.id,
-            fullName: patients.fullName,
-            dateOfBirth: patients.dateOfBirth,
-            gender: patients.gender
-          }
+          id: queueEntries.id,
+          queueNumber: queueEntries.queueNumber,
+          status: queueEntries.status,
+          createdAt: queueEntries.createdAt,
+          visitReason: queueEntries.visitReason,
+          vitals: queueEntries.vitals,
+          patientId: queueEntries.patientId,
+          patientName: patients.fullName,
+          patientDob: patients.dateOfBirth,
+          patientGender: patients.gender
         })
         .from(queueEntries)
         .innerJoin(patients, eq(queueEntries.patientId, patients.id))
@@ -519,12 +529,22 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(queueEntries.queueNumber);
 
-      // Calculate estimated wait time
+      // Calculate estimated wait time and format response
       const avgWaitTime = await calculateAverageWaitTime();
-      const queueWithWaitTimes = entries.map((entry, index) => ({
-        ...entry.queueEntry,
-        patient: entry.patient,
-        estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
+      const queueWithWaitTimes = entries.map((entry) => ({
+        id: entry.id, // Ensure unique key for React
+        queueNumber: entry.queueNumber,
+        status: entry.status,
+        createdAt: entry.createdAt,
+        visitReason: entry.visitReason,
+        vitals: entry.vitals,
+        estimatedWaitTime: Math.ceil(avgWaitTime * entry.queueNumber),
+        patient: {
+          id: entry.patientId,
+          fullName: entry.patientName,
+          dateOfBirth: entry.patientDob,
+          gender: entry.patientGender
+        }
       }));
 
       res.json(queueWithWaitTimes);
