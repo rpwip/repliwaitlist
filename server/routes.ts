@@ -131,8 +131,8 @@ export function registerRoutes(app: Express): Server {
   const wss = setupWebSocketServer(httpServer);
 
   // Patient Portal API endpoints
-  app.get("/api/patient/profile", async (req, res) => {
-    const { id } = req.query;
+  app.get("/api/patient/profile/:id", async (req, res) => {
+    const { id } = req.params;
     if (!id) {
       return res.status(400).send("Patient ID is required");
     }
@@ -141,7 +141,7 @@ export function registerRoutes(app: Express): Server {
       const [patient] = await db
         .select()
         .from(patients)
-        .where(eq(patients.id, parseInt(id as string)))
+        .where(eq(patients.id, parseInt(id)))
         .limit(1);
 
       if (!patient) {
