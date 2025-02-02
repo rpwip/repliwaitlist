@@ -72,21 +72,33 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
     queryFn: async () => {
       if (!patientId) throw new Error("No patient ID provided");
       console.log("Fetching patient history for ID:", patientId);
-      const response = await fetch(`/api/doctor/patient-history/${patientId}`, {
-        credentials: "include"
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Failed to fetch patient history:", errorText);
-        throw new Error(`Failed to fetch patient history: ${errorText}`);
+      try {
+        const response = await fetch(`/api/doctor/patient-history/${patientId}`, {
+          credentials: "include",
+          headers: {
+            "Accept": "application/json",
+            "Cache-Control": "no-cache"
+          }
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Failed to fetch patient history:", errorText);
+          throw new Error(`Failed to fetch patient history: ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log("Received patient history data:", data);
+        return data;
+      } catch (err) {
+        console.error("Error in patient history fetch:", err);
+        throw err;
       }
-      const data = await response.json();
-      console.log("Received patient history data:", data);
-      return data;
     },
     enabled: !!patientId,
     retry: 1,
-    staleTime: 30000,
+    staleTime: 0, // Disable stale time to always fetch fresh data
+    cacheTime: 0, // Disable caching to always fetch fresh data
   });
 
   if (!patientId) return null;

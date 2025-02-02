@@ -619,9 +619,9 @@ export default function DoctorPortal() {
             .filter(data => 
               data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase())
             )
-            .map((data) => (
+            .map((data, index) => (
               <Card 
-                key={`patient-${data.patient.id}`}
+                key={`filtered-patient-${data.patient.id}-${index}`}
                 className="hover:bg-accent/50 transition-colors cursor-pointer"
                 onClick={() => setSelectedPatientId(data.patient.id)}
               >
@@ -701,12 +701,6 @@ export default function DoctorPortal() {
             </Button>
           </div>
         )}
-
-        {/* Patient History Modal */}
-        <PatientHistoryModal 
-          patientId={selectedPatientId} 
-          onClose={() => setSelectedPatientId(null)}
-        />
       </div>
     );
   };
@@ -748,7 +742,7 @@ export default function DoctorPortal() {
                     <Users className="h-4 w-4 mr-2" />
                     Patients
                   </Button>
-                  <Button
+                   <Button
                     variant={view === "clinics" ? "default" : "ghost"}
                     className="w-full justify-start"
                     onClick={() => setView("clinics")}
@@ -777,7 +771,7 @@ export default function DoctorPortal() {
                 <div className="space-y-4">
                   {dashboardData?.recentPatients?.map((patient, index) => (
                     <div
-                      key={`recent-patient-${patient.id}-${index}`}
+                      key={`sidebar-recent-${patient.id}-${index}`}
                       className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
                       onClick={() => setSelectedPatientId(patient.id)}
                     >
@@ -805,6 +799,15 @@ export default function DoctorPortal() {
             {view === "patients" && renderPatients()}
           </div>
         </div>
+        
+        {/* Patient History Modal */}
+        {selectedPatientId && (
+          <PatientHistoryModal 
+            key={`modal-${selectedPatientId}`}
+            patientId={selectedPatientId} 
+            onClose={() => setSelectedPatientId(null)}
+          />
+        )}
       </div>
     </div>
   );
