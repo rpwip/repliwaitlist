@@ -40,6 +40,7 @@ export function useQueue() {
         };
 
         ws.onerror = () => {
+          console.error('WebSocket error occurred');
           setIsConnected(false);
           queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
         };
@@ -77,19 +78,31 @@ export function useQueue() {
 
   const registerPatientMutation = useMutation({
     mutationFn: async (data: RegistrationData) => {
-      console.log('Registering patient with data:', data);
-      const res = await apiRequest("POST", "/api/register-patient", data);
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || 'Failed to register patient');
+      console.log('Starting patient registration with data:', data);
+      try {
+        const res = await apiRequest("POST", "/api/register-patient", data);
+        console.log('Registration API response status:', res.status);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Registration API error:', errorText);
+          throw new Error(errorText || 'Failed to register patient');
+        }
+
+        const jsonResponse = await res.json();
+        console.log('Registration API success response:', jsonResponse);
+        return jsonResponse;
+      } catch (error) {
+        console.error('Registration mutation error:', error);
+        throw error;
       }
-      return res.json();
     },
     onSuccess: () => {
+      console.log('Registration successful, invalidating queue query');
       queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
     },
     onError: (error: Error) => {
-      console.error('Registration failed:', error);
+      console.error('Registration mutation failed:', error);
       throw error;
     }
   });

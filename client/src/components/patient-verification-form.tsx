@@ -74,8 +74,11 @@ export default function PatientVerificationForm() {
   });
 
   const handleVerification = async (data: { mobile: string }) => {
+    console.log("Verifying patient with mobile:", data.mobile);
     try {
       const response = await verifyPatient({ mobile: data.mobile });
+      console.log("Verification response:", response);
+
       if (Array.isArray(response)) {
         setFoundPatients(response);
         setIsNewPatient(false);
@@ -91,13 +94,19 @@ export default function PatientVerificationForm() {
           : "Proceeding to payment...",
       });
     } catch (error) {
+      console.log("Patient not found, setting up registration form");
       setIsNewPatient(true);
+      setFoundPatients([]);
+      setSelectedPatient(null);
+
+      // Initialize registration form with mobile number
       const mobileNumber = data.mobile;
       registrationForm.reset({
         fullName: "",
         email: "",
         mobile: mobileNumber,
       });
+
       toast({
         title: "New Patient",
         description: "Please complete the registration form.",
@@ -106,6 +115,7 @@ export default function PatientVerificationForm() {
   };
 
   const handleRegistration = async (data: PatientFormData) => {
+    console.log("Starting registration with data:", data);
     try {
       const payload = {
         fullName: data.fullName,
@@ -113,17 +123,20 @@ export default function PatientVerificationForm() {
         mobile: data.mobile,
       };
 
+      console.log("Sending registration payload:", payload);
       const result = await registerPatient(payload);
+      console.log("Registration API response:", result);
 
-      if (result.patient && result.queueEntry) {
-        setRegistrationData(result);
-        toast({
-          title: "Registration successful",
-          description: "Please proceed with the payment to secure your spot.",
-        });
-      } else {
-        throw new Error("Invalid registration response");
+      if (!result || !result.patient || !result.queueEntry) {
+        console.error("Invalid registration response:", result);
+        throw new Error("Invalid registration response structure");
       }
+
+      setRegistrationData(result);
+      toast({
+        title: "Registration successful",
+        description: "Please proceed with the payment to secure your spot.",
+      });
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({
@@ -137,6 +150,7 @@ export default function PatientVerificationForm() {
   if (registrationData?.queueEntry || selectedPatient?.queueEntry) {
     const queueId = registrationData?.queueEntry?.id || selectedPatient?.queueEntry?.id;
     if (!queueId) {
+      console.error("Queue ID missing from:", { registrationData, selectedPatient });
       return <div>Error: Queue entry not found</div>;
     }
 
@@ -166,9 +180,7 @@ export default function PatientVerificationForm() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-semibold">
-            Select Patient
-          </CardTitle>
+          <CardTitle className="text-xl font-semibold">Select Patient</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
@@ -181,6 +193,7 @@ export default function PatientVerificationForm() {
                 variant="outline"
                 className="w-full justify-start h-auto py-4 px-4"
                 onClick={() => {
+                  console.log("Selected patient:", patient);
                   setSelectedPatient(patient);
                   setFoundPatients([]);
                 }}
@@ -242,6 +255,7 @@ export default function PatientVerificationForm() {
     );
   }
 
+  // Registration form for new patient
   return (
     <Form {...registrationForm}>
       <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
