@@ -72,14 +72,25 @@ export default function Queue() {
   }
 
   // Filter queue based on selected clinic
-  const filteredQueue = Array.isArray(queue) 
-    ? queue.filter(q => q.clinicId === selectedClinicId)
+  console.log("Raw queue data:", queue);
+  console.log("Selected clinic ID:", selectedClinicId);
+
+  const filteredQueue = Array.isArray(queue)
+    ? queue.filter(q => {
+        console.log("Checking queue entry:", q);
+        return q.clinicId === selectedClinicId;
+      })
     : [];
+
+  console.log("Filtered queue:", filteredQueue);
 
   const currentPatient = filteredQueue.find(q => q.status === "in-progress");
   const waitingPatients = filteredQueue
     .filter(q => q.status === "waiting")
     .sort((a, b) => a.queueNumber - b.queueNumber);
+
+  console.log("Current patient:", currentPatient);
+  console.log("Waiting patients:", waitingPatients);
 
   return (
     <div className="min-h-screen bg-background p-8">
