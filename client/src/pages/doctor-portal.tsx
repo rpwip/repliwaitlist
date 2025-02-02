@@ -247,7 +247,7 @@ export default function DoctorPortal() {
     enabled: view === "patients" && !!user?.id,
   });
 
-  // Update the queue data fetching
+  // Update the queue data fetching to properly handle patient IDs
   const { data: queueData, refetch: refetchQueue } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
@@ -356,13 +356,14 @@ export default function DoctorPortal() {
         return;
       }
 
-      setCurrentQueueEntry(entry);
+      // Update state for modal
       setSelectedPatientId(entry.patient.id);
+      setCurrentQueueEntry(entry);
       setShowNewVisitModal(true);
 
+      // Make the API call to start consultation
       startConsultation.mutate(entry.id, {
         onSuccess: () => {
-          console.log("Successfully started consultation");
           toast({
             title: "Success",
             description: "Started consultation with patient",
