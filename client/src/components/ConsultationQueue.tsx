@@ -61,6 +61,9 @@ export default function ConsultationQueue({
   const currentDate = new Date();
   const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
+  console.log("Queue Data:", queueData);
+  console.log("Current Patient:", currentPatient);
+
   const handleCareNow = () => {
     if (currentPatient?.patient?.id) {
       setShowNewVisitModal(true);
@@ -124,7 +127,7 @@ export default function ConsultationQueue({
                     </div>
                     <div>
                       <p className="font-medium">
-                        #{entry.queueNumber} - {entry.patient?.fullName || 'Unknown Patient'}
+                        #{entry.queueNumber} - {entry.patient?.fullName}
                       </p>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="h-4 w-4" />
@@ -173,7 +176,7 @@ export default function ConsultationQueue({
                   </div>
                   <div>
                     <h3 className="text-lg font-medium">
-                      {currentPatient.patient?.fullName || 'Unknown Patient'}
+                      {currentPatient.patient?.fullName}
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       Queue #{currentPatient.queueNumber}

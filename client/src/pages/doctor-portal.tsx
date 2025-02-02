@@ -927,12 +927,23 @@ export default function DoctorPortal() {
       case "overview":
         return renderOverview();
       case "queue":
+        // Transform the queue data to ensure patient information is properly structured
+        const transformedQueueData = Array.isArray(queueData) ? queueData.map(entry => ({
+          ...entry,
+          patient: {
+            id: entry.patient?.id,
+            fullName: entry.patient?.fullName
+          }
+        })) : [];
+
+        console.log("Transformed Queue Data:", transformedQueueData);
+
         return (
           <ConsultationQueue
             clinicsData={clinicsData || []}
             selectedClinicId={selectedClinicId}
             onClinicChange={setSelectedClinicId}
-            queueData={queueData || []}
+            queueData={transformedQueueData}
             currentPatient={currentQueueEntry}
             onStartConsultation={handleStartConsultation}
             onSkipPatient={handleSkipPatient}
