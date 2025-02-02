@@ -69,7 +69,7 @@ export default function PatientVerificationForm() {
     defaultValues: {
       fullName: "",
       email: "",
-      mobile: "",
+      mobile: verificationForm.getValues().mobile || "",
     },
   });
 
@@ -78,8 +78,10 @@ export default function PatientVerificationForm() {
       const response = await verifyPatient({ mobile: data.mobile });
       if (Array.isArray(response)) {
         setFoundPatients(response);
+        setIsNewPatient(false);
       } else {
         setSelectedPatient(response);
+        setIsNewPatient(false);
       }
 
       toast({
@@ -109,12 +111,16 @@ export default function PatientVerificationForm() {
 
       const result = await registerPatient(payload);
       console.log("Registration result:", result);
-      setRegistrationData(result);
 
-      toast({
-        title: "Registration successful",
-        description: "Please proceed with the payment to secure your spot.",
-      });
+      if (result.patient && result.queueEntry) {
+        setRegistrationData(result);
+        toast({
+          title: "Registration successful",
+          description: "Please proceed with the payment to secure your spot.",
+        });
+      } else {
+        throw new Error("Invalid registration response");
+      }
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({
@@ -125,8 +131,7 @@ export default function PatientVerificationForm() {
     }
   };
 
-  // Show payment QR if we have registration data or selected patient with queue entry
-  if (registrationData?.queueEntry || (selectedPatient?.queueEntry)) {
+  if (registrationData?.queueEntry || selectedPatient?.queueEntry) {
     const queueId = registrationData?.queueEntry?.id || selectedPatient?.queueEntry?.id;
     if (!queueId) {
       return <div>Error: Queue entry not found</div>;
@@ -135,9 +140,19 @@ export default function PatientVerificationForm() {
     return (
       <Card className="p-6">
         <CardHeader>
-          <CardTitle>Payment Required</CardTitle>
+          <CardTitle>{getTranslation('paymentTitle', language)}</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <p className="text-lg font-medium">
+              Queue Number: <span className="text-primary">
+                {String(registrationData?.queueEntry?.queueNumber || selectedPatient?.queueEntry?.queueNumber).padStart(3, '0')}
+              </span>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {getTranslation('paymentDescription', language)}
+            </p>
+          </div>
           <PaymentQR queueId={queueId} />
         </CardContent>
       </Card>

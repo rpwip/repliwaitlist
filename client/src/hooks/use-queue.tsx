@@ -33,7 +33,6 @@ export function useQueue() {
             const data = JSON.parse(event.data);
             if (data.type === "QUEUE_UPDATE") {
               queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
-              queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
             }
           } catch (error) {
             console.error('WebSocket message parsing error:', error);
@@ -43,7 +42,6 @@ export function useQueue() {
         ws.onerror = () => {
           setIsConnected(false);
           queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
         };
 
         ws.onclose = () => {
@@ -79,10 +77,10 @@ export function useQueue() {
 
   const registerPatientMutation = useMutation({
     mutationFn: async (data: RegistrationData) => {
-      console.log('Registering patient with data:', data);
       const res = await apiRequest("POST", "/api/register-patient", data);
       if (!res.ok) {
-        throw new Error('Failed to register patient');
+        const error = await res.text();
+        throw new Error(error || 'Failed to register patient');
       }
       return res.json();
     },
