@@ -13,6 +13,18 @@ import {
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+type QueueEntryWithWaitTime = {
+  id: number;
+  queueNumber: number;
+  status: string;
+  patient: {
+    id: number;
+    fullName: string;
+  };
+  estimatedWaitTime: number;
+  clinicId: number;
+};
+
 export default function Queue() {
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const { queue, isLoading, clinics, isError } = useQueue();
@@ -20,15 +32,23 @@ export default function Queue() {
   const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
   useEffect(() => {
-    // Set default clinic when clinics data is loaded
-    if (clinics && clinics.length > 0 && !selectedClinicId) {
+    // Get clinicId from URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const clinicIdParam = params.get('clinicId');
+    console.log('URL clinic ID:', clinicIdParam);
+
+    if (clinicIdParam) {
+      const parsedId = parseInt(clinicIdParam);
+      console.log('Setting selected clinic ID from URL:', parsedId);
+      setSelectedClinicId(parsedId);
+    } else if (clinics && Array.isArray(clinics) && clinics.length > 0 && !selectedClinicId) {
       const yazhClinic = clinics.find(clinic => clinic.name === "Yazh Health Care");
       if (yazhClinic) {
-        console.log("Setting default clinic:", yazhClinic.name, yazhClinic.id);
+        console.log('Setting default clinic (Yazh Health Care):', yazhClinic.id);
         setSelectedClinicId(yazhClinic.id);
       }
     }
-  }, [clinics]);
+  }, [clinics, selectedClinicId]);
 
   if (isError) {
     return (
@@ -57,12 +77,16 @@ export default function Queue() {
     : [];
 
   console.log("Selected Clinic ID:", selectedClinicId);
+  console.log("Full Queue:", queue);
   console.log("Filtered Queue:", filteredQueue);
 
   const currentPatient = filteredQueue.find(q => q.status === "in-progress");
   const waitingPatients = filteredQueue
     .filter(q => q.status === "waiting")
     .sort((a, b) => a.queueNumber - b.queueNumber);
+
+  console.log("Current Patient:", currentPatient);
+  console.log("Waiting Patients:", waitingPatients);
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -77,7 +101,7 @@ export default function Queue() {
             value={selectedClinicId?.toString()}
             onValueChange={(value) => {
               const clinicId = parseInt(value);
-              console.log("Changing clinic to:", clinicId);
+              console.log("Changing clinic selection to:", clinicId);
               setSelectedClinicId(clinicId);
             }}
           >
