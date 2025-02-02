@@ -69,7 +69,7 @@ export default function PatientVerificationForm() {
     defaultValues: {
       fullName: "",
       email: "",
-      mobile: verificationForm.getValues().mobile || "",
+      mobile: "",
     },
   });
 
@@ -92,6 +92,7 @@ export default function PatientVerificationForm() {
       });
     } catch (error) {
       setIsNewPatient(true);
+      // Reset form with only mobile number from verification
       registrationForm.reset({
         fullName: "",
         email: "",
