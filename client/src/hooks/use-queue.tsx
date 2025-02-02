@@ -106,6 +106,10 @@ export function useQueue() {
         const res = await apiRequest("GET", "/api/queue", undefined, {
           credentials: 'include'
         });
+        const data = await res.json();
+        console.log('[useQueue] Raw queue response:', data);
+          credentials: 'include'
+        });
         if (res.ok) {
           const data = await res.json();
           console.log('[useQueue] Received queue data:', data);

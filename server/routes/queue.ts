@@ -7,6 +7,7 @@ export async function getClinicQueue(clinicId: number) {
   console.log('Fetching queue entries for clinic', clinicId);
   try {
     console.log('[DB Query] Starting queue fetch for clinic:', clinicId);
+    console.log('[DB Query] Query parameters:', { clinicId });
     const entries = await db.query.queueEntries.findMany({
       where: eq(queueEntries.clinicId, clinicId),
       with: {
