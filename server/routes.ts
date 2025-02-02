@@ -131,6 +131,30 @@ export function registerRoutes(app: Express): Server {
   const wss = setupWebSocketServer(httpServer);
 
   // Patient Portal API endpoints
+  app.post("/api/patient/verify", async (req, res) => {
+    const { mobile } = req.body;
+    if (!mobile) {
+      return res.status(400).send("Mobile number is required");
+    }
+
+    try {
+      const patient = await db
+        .select()
+        .from(patients)
+        .where(eq(patients.mobile, mobile))
+        .limit(1);
+
+      if (!patient || patient.length === 0) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+
+      res.json(patient[0]);
+    } catch (error) {
+      console.error("Error verifying patient:", error);
+      res.status(500).send("Error verifying patient");
+    }
+  });
+
   app.get("/api/patient/profile/:id", async (req, res) => {
     const { id } = req.params;
     if (!id) {
