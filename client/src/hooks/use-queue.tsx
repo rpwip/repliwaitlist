@@ -3,24 +3,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-type Clinic = {
-  id: number;
-  name: string;
-  address: string;
-  contact_number: string;
-  type: string;
-};
-
-type QueueEntry = {
-  id: number;
-  queueNumber: number;
-  status: string;
-  patient: {
-    id: number;
-    fullName: string;
-  };
-  estimatedWaitTime: number;
-  clinicId: number;
+type RegistrationData = {
+  fullName: string;
+  email: string | null;
+  mobile: string;
 };
 
 export function useQueue() {
@@ -82,43 +68,22 @@ export function useQueue() {
     };
   }, []);
 
-  const queueQuery = useQuery<QueueEntry[]>({
+  const queueQuery = useQuery({
     queryKey: ["/api/queue"],
     refetchInterval: isConnected ? false : 5000,
-    retry: 2,
-    retryDelay: 1000,
-    staleTime: 0,
-    gcTime: 0
   });
 
-  const clinicsQuery = useQuery<Clinic[]>({
-    queryKey: ["/api/clinics"],
-    retry: 2,
-    retryDelay: 1000,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    staleTime: 0,
-    gcTime: 0
-  });
-
-  const updateStatusMutation = useMutation({
-    mutationFn: async ({ queueId, status }: { queueId: number; status: string }) => {
-      const res = await apiRequest("POST", `/api/queue/${queueId}/status`, { status });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
-    },
+  const clinicsQuery = useQuery({
+    queryKey: ["/api/clinics"]
   });
 
   const registerPatientMutation = useMutation({
-    mutationFn: async (data: {
-      fullName: string;
-      email: string;
-      mobile: string;
-    }) => {
+    mutationFn: async (data: RegistrationData) => {
+      console.log('Registering patient with data:', data);
       const res = await apiRequest("POST", "/api/register-patient", data);
+      if (!res.ok) {
+        throw new Error('Failed to register patient');
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -136,7 +101,6 @@ export function useQueue() {
     isLoading: queueQuery.isLoading || clinicsQuery.isLoading,
     isError: queueQuery.isError || clinicsQuery.isError,
     isConnected,
-    updateStatus: updateStatusMutation.mutate,
     registerPatient: registerPatientMutation.mutateAsync,
   };
 }

@@ -325,14 +325,23 @@ export function registerRoutes(app: Express): Server {
 
       const nextQueueNumber = (lastQueueEntry?.queueNumber || 0) + 1;
 
-      const [patient] = await db.insert(patients).values(result.data).returning();
+      // Insert patient first
+      const [patient] = await db
+        .insert(patients)
+        .values({
+          fullName: result.data.fullName,
+          email: result.data.email,
+          mobile: result.data.mobile
+        })
+        .returning();
+
+      // Then create queue entry
       const [entry] = await db
         .insert(queueEntries)
         .values({
           patientId: patient.id,
           queueNumber: nextQueueNumber,
           status: "pending", // Will be set to "waiting" after payment
-          clinicId: req.body.clinicId // Use the clinic ID from the request
         })
         .returning();
 
@@ -896,8 +905,7 @@ app.get("/api/doctor/patients", async (req, res) => {
         })
         .from(patientDoctorAssignments)
         .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
-        .leftJoin(visitRecords, and(
-          eq(visitRecords.patientId, patients.id),
+        .leftJoin(visitRecords, and(eq(visitRecords.patientId, patients.id),
           eq(visitRecords.doctorId, doctor.id)
         ))
         .leftJoin(diagnoses, and(
