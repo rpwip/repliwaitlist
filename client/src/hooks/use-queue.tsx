@@ -76,6 +76,8 @@ export function useQueue() {
         console.log('Fetching queue data...');
         const res = await apiRequest("GET", "/api/queue");
         if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Queue fetch error:', errorText);
           throw new Error('Failed to fetch queue data');
         }
         const data = await res.json();
@@ -96,6 +98,8 @@ export function useQueue() {
         console.log('Fetching clinics data...');
         const res = await apiRequest("GET", "/api/clinics");
         if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Clinics fetch error:', errorText);
           throw new Error('Failed to fetch clinics data');
         }
         const data = await res.json();
@@ -107,6 +111,26 @@ export function useQueue() {
       }
     }
   });
+
+    // Specific clinic queue query
+    const getClinicQueue = async (clinicId: number) => {
+        console.log(`Fetching queue for clinic ${clinicId}`);
+        try {
+          const res = await apiRequest("GET", `/api/queue/${clinicId}`);
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error(`Clinic queue fetch error for clinic ${clinicId}:`, errorText);
+            throw new Error('Failed to fetch clinic queue');
+          }
+          const data = await res.json();
+          console.log(`Queue data for clinic ${clinicId}:`, data);
+          return data;
+        } catch (error) {
+          console.error(`Error fetching clinic ${clinicId} queue:`, error);
+          throw error;
+        }
+      };
+
 
   const registerPatientMutation = useMutation({
     mutationFn: async (data: RegistrationData) => {
@@ -201,5 +225,6 @@ export function useQueue() {
     registerPatient: registerPatientMutation.mutateAsync,
     verifyPayment: verifyPaymentMutation.mutateAsync,
     confirmPayment: confirmPaymentMutation.mutateAsync,
+    getClinicQueue,
   };
 }

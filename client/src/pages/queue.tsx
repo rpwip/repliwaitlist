@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useQuery } from "@tanstack/react-query";
 
 type QueueEntryWithWaitTime = {
   id: number;
@@ -27,12 +28,12 @@ type QueueEntryWithWaitTime = {
 
 export default function Queue() {
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
-  const { queue, isLoading, clinics, isError } = useQueue();
+  const { clinics, isLoading: isLoadingClinics } = useQueue();
   const currentDate = new Date();
   const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
+  // Get clinicId from URL parameters
   useEffect(() => {
-    // Get clinicId from URL parameters
     const params = new URLSearchParams(window.location.search);
     const clinicIdParam = params.get('clinicId');
     console.log('URL clinic ID:', clinicIdParam);
@@ -41,14 +42,26 @@ export default function Queue() {
       const parsedId = parseInt(clinicIdParam);
       console.log('Setting selected clinic ID from URL:', parsedId);
       setSelectedClinicId(parsedId);
-    } else if (clinics && Array.isArray(clinics) && clinics.length > 0 && !selectedClinicId) {
-      const yazhClinic = clinics.find(clinic => clinic.name === "Yazh Health Care");
-      if (yazhClinic) {
-        console.log('Setting default clinic (Yazh Health Care):', yazhClinic.id);
-        setSelectedClinicId(yazhClinic.id);
-      }
     }
-  }, [clinics, selectedClinicId]);
+  }, []);
+
+  // Use TanStack Query to fetch clinic-specific queue
+  const { data: clinicQueue, isLoading: isLoadingQueue, isError } = useQuery({
+    queryKey: ['/api/queue', selectedClinicId],
+    queryFn: async () => {
+      if (!selectedClinicId) return [];
+      const response = await fetch(`/api/queue/${selectedClinicId}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error fetching clinic queue:', errorText);
+        throw new Error('Failed to fetch queue data');
+      }
+      const data = await response.json();
+      console.log('Clinic queue data:', data);
+      return data;
+    },
+    enabled: !!selectedClinicId,
+  });
 
   if (isError) {
     return (
@@ -63,7 +76,7 @@ export default function Queue() {
     );
   }
 
-  if (isLoading || !clinics || clinics.length === 0) {
+  if (isLoadingClinics || isLoadingQueue) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -71,23 +84,10 @@ export default function Queue() {
     );
   }
 
-  // Filter queue based on selected clinic
-  console.log("Raw queue data:", queue);
-  console.log("Selected clinic ID:", selectedClinicId);
-
-  const filteredQueue = Array.isArray(queue)
-    ? queue.filter(q => {
-        console.log("Checking queue entry:", q);
-        return q.clinicId === selectedClinicId;
-      })
-    : [];
-
-  console.log("Filtered queue:", filteredQueue);
-
-  const currentPatient = filteredQueue.find(q => q.status === "in-progress");
-  const waitingPatients = filteredQueue
-    .filter(q => q.status === "waiting")
-    .sort((a, b) => a.queueNumber - b.queueNumber);
+  const currentPatient = clinicQueue?.find((q: QueueEntryWithWaitTime) => q.status === "in-progress");
+  const waitingPatients = clinicQueue
+    ?.filter((q: QueueEntryWithWaitTime) => q.status === "waiting")
+    .sort((a: QueueEntryWithWaitTime, b: QueueEntryWithWaitTime) => a.queueNumber - b.queueNumber) || [];
 
   console.log("Current patient:", currentPatient);
   console.log("Waiting patients:", waitingPatients);
@@ -128,7 +128,7 @@ export default function Queue() {
           <Card className="p-8">
             <h2 className="text-2xl font-semibold mb-4">Waiting Patients</h2>
             <div className="space-y-4">
-              {waitingPatients.map((patient) => (
+              {waitingPatients.map((patient: QueueEntryWithWaitTime) => (
                 <div
                   key={patient.id}
                   className="flex items-center justify-between p-4 bg-muted rounded-lg"
