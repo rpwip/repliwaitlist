@@ -312,14 +312,14 @@ export default function DoctorPortal() {
     try {
       console.log("Starting consultation for:", entry);
   
-      // Format the entry data
+      // Format the entry data, ensuring all required fields are present
       const formattedEntry = {
         ...entry,
         patient: {
-          fullName: entry.fullName || entry.patient?.fullName || '',
-          id: entry.patientId || entry.patient?.id || 0
+          fullName: entry.patient?.fullName || entry.fullName || '',
+          id: entry.patient?.id || entry.patientId || 0
         },
-        patientId: entry.patientId || entry.patient?.id || 0,
+        patientId: entry.patient?.id || entry.patientId || 0,
         vitals: entry.vitals || {
           bp: 'N/A',
           temperature: 'N/A',
@@ -338,7 +338,10 @@ export default function DoctorPortal() {
       startConsultation.mutate(entry.id, {
         onSuccess: () => {
           console.log("Successfully started consultation");
-          // State is already set, no need to update here
+          toast({
+            title: "Success",
+            description: "Started consultation with patient",
+          });
         },
         onError: (error) => {
           console.error("Failed to start consultation:", error);
@@ -752,8 +755,8 @@ const renderQueue = () => (
           ) : (
             queueData.map((entry: QueueEntry) => (
               <div
-                key={entry.key}
-                className="flex items-center justify-between p-4 border rounded-lg"
+                key={entry.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
               >
                 <div className="flex items-center space-x-4">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -761,11 +764,17 @@ const renderQueue = () => (
                   </div>
                   <div>
                     <p className="font-medium">
-                      #{entry.queueNumber} - {entry.fullName || entry.patient?.fullName}
+                      #{entry.queueNumber} - {entry.patient?.fullName || entry.fullName}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      Waiting time: {entry.estimatedWaitTime}min
-                    </p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>Waiting time: {entry.estimatedWaitTime}min</span>
+                    </div>
+                    {entry.visitReason && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Reason: {entry.visitReason}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex space-x-2">
@@ -803,16 +812,22 @@ const renderQueue = () => (
                   <UserRound className="h-8 w-8 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium">{currentQueueEntry.patient.fullName}</h3>
+                  <h3 className="text-lg font-medium">
+                    {currentQueueEntry.patient?.fullName || currentQueueEntry.fullName}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     Queue #{currentQueueEntry.queueNumber}
                   </p>
                 </div>
               </div>
+
               <div className="space-y-2">
                 <h4 className="font-medium">Reason for Visit</h4>
-                <p>{currentQueueEntry.visitReason || 'Not specified'}</p>
+                <p className="text-muted-foreground">
+                  {currentQueueEntry.visitReason || 'Not specified'}
+                </p>
               </div>
+
               <div className="space-y-2">
                 <h4 className="font-medium">Vital Signs</h4>
                 <div className="grid grid-cols-2 gap-4">
@@ -834,8 +849,9 @@ const renderQueue = () => (
                   </div>
                 </div>
               </div>
+
               <div className="flex space-x-2 mt-4">
-               <Button 
+                <Button 
                   className="flex-1"
                   onClick={() => handleNewVisit(currentQueueEntry)}
                 >
@@ -858,21 +874,22 @@ const renderQueue = () => (
         </CardContent>
       </Card>
     </div>
-        {/* Patient History Modal */}
-      {selectedPatientId && (
-        <PatientHistoryModal
-          open={!!selectedPatientId}
-          onClose={() => {
-            setSelectedPatientId(null);
-            setShowNewVisitModal(false);
-            setCurrentQueueEntry(null);
-          }}
-          patientId={selectedPatientId}
-          showNewVisitForm={showNewVisitModal}
-          doctorId={user?.id}
-          clinicId={selectedClinicId}
-        />
-      )}
+
+    {/* Patient History Modal */}
+    {selectedPatientId && (
+      <PatientHistoryModal
+        open={!!selectedPatientId}
+        onClose={() => {
+          setSelectedPatientId(null);
+          setShowNewVisitModal(false);
+          setCurrentQueueEntry(null);
+        }}
+        patientId={selectedPatientId}
+        showNewVisitForm={showNewVisitModal}
+        doctorId={user?.id}
+        clinicId={selectedClinicId || undefined}
+      />
+    )}
   </div>
 );
 
