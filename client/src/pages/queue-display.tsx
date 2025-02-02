@@ -1,11 +1,16 @@
 import { useQueue } from "@/hooks/use-queue";
 import { Card } from "@/components/ui/card";
 import QueueNumber from "@/components/queue-number";
-import { Clock } from "lucide-react";
-import { PatientHistoryModal } from "@/components/PatientHistoryModal";
+import { Clock, UserRound } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { format } from "date-fns";
 
 type QueueEntryWithWaitTime = {
   id: number;
@@ -19,13 +24,17 @@ type QueueEntryWithWaitTime = {
   clinicId: number;
 };
 
+type Clinic = {
+  id: number;
+  name: string;
+};
+
 export default function QueueDisplay() {
-  const { user } = useAuth();
-  const { queue, isLoading } = useQueue();
+  const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
+  const { queue, isLoading, clinics } = useQueue();
   const typedQueue = queue as QueueEntryWithWaitTime[];
-  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
-  const [showNewVisitForm, setShowNewVisitForm] = useState(false);
-  const [currentClinicId, setCurrentClinicId] = useState<number | null>(null);
+  const currentDate = new Date();
+  const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
   if (isLoading) {
     return (
@@ -38,27 +47,7 @@ export default function QueueDisplay() {
   const currentPatient = typedQueue.find((q) => q.status === "in-progress");
   const waitingPatients = typedQueue
     .filter((q) => q.status === "waiting")
-    .slice(0, 5);
-
-  const handleStartConsult = (patient: { id: number, clinicId: number }) => {
-    console.log("Starting consult for patient:", patient);
-    setSelectedPatientId(patient.id);
-    setCurrentClinicId(patient.clinicId);
-    setShowNewVisitForm(true);
-  };
-
-  const handleViewPatientHistory = (patient: { id: number, clinicId: number }) => {
-    console.log("Viewing patient history for:", patient);
-    setSelectedPatientId(patient.id);
-    setCurrentClinicId(patient.clinicId);
-    setShowNewVisitForm(false);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedPatientId(null);
-    setShowNewVisitForm(false);
-    setCurrentClinicId(null);
-  };
+    .sort((a, b) => a.queueNumber - b.queueNumber);
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -68,42 +57,38 @@ export default function QueueDisplay() {
           <p className="text-xl text-muted-foreground mt-2">Queue Status</p>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <Card className="p-8">
-            <h2 className="text-2xl font-semibold mb-4">Now Serving</h2>
-            {currentPatient ? (
-              <div className="space-y-4">
-                <QueueNumber
-                  number={currentPatient.queueNumber}
-                  className="text-8xl"
-                />
-                <p className="text-lg text-center">
-                  {currentPatient.patient.fullName}
-                </p>
-                <Button 
-                  onClick={() => handleStartConsult({
-                    id: currentPatient.patient.id,
-                    clinicId: currentPatient.clinicId
-                  })}
-                  className="w-full"
+        {/* Clinic Selector and Date */}
+        <div className="flex items-center justify-between mb-8">
+          <Select
+            value={selectedClinicId?.toString()}
+            onValueChange={(value) => setSelectedClinicId(parseInt(value))}
+          >
+            <SelectTrigger className="w-[280px]">
+              <SelectValue placeholder="Select clinic" />
+            </SelectTrigger>
+            <SelectContent>
+              {clinics?.map((clinic: Clinic) => (
+                <SelectItem
+                  key={clinic.id}
+                  value={clinic.id.toString()}
                 >
-                  Start Consultation
-                </Button>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground">
-                No patient currently being served
-              </p>
-            )}
-          </Card>
+                  {clinic.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-lg font-medium">{formattedDate}</span>
+        </div>
 
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Waiting Patients */}
           <Card className="p-8">
-            <h2 className="text-2xl font-semibold mb-4">Next in Line</h2>
+            <h2 className="text-2xl font-semibold mb-4">Waiting Patients</h2>
             <div className="space-y-4">
               {waitingPatients.map((patient) => (
                 <div
                   key={patient.id}
-                  className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                  className="flex items-center justify-between p-4 bg-muted rounded-lg"
                 >
                   <div className="flex items-center space-x-4">
                     <QueueNumber
@@ -120,20 +105,6 @@ export default function QueueDisplay() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleViewPatientHistory({
-                          id: patient.patient.id,
-                          clinicId: patient.clinicId
-                        });
-                      }}
-                    >
-                      View History
-                    </Button>
-                  </div>
                 </div>
               ))}
               {waitingPatients.length === 0 && (
@@ -143,18 +114,34 @@ export default function QueueDisplay() {
               )}
             </div>
           </Card>
-        </div>
 
-        {selectedPatientId && (
-          <PatientHistoryModal
-            patientId={selectedPatientId}
-            onClose={handleCloseModal}
-            open={!!selectedPatientId}
-            showNewVisitForm={showNewVisitForm}
-            doctorId={user?.id}
-            clinicId={currentClinicId || undefined}
-          />
-        )}
+          {/* Currently Serving */}
+          <Card className="p-8">
+            <h2 className="text-2xl font-semibold mb-4">Now Serving</h2>
+            {currentPatient ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center">
+                  <div className="text-center">
+                    <QueueNumber
+                      number={currentPatient.queueNumber}
+                      className="text-8xl"
+                    />
+                    <div className="mt-4 flex items-center justify-center space-x-2">
+                      <UserRound className="h-6 w-6 text-muted-foreground" />
+                      <p className="text-lg">
+                        {currentPatient.patient.fullName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground">
+                No patient currently being served
+              </p>
+            )}
+          </Card>
+        </div>
       </div>
     </div>
   );
