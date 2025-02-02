@@ -48,7 +48,7 @@ export default function DoctorPortal() {
   const [showNewVisitModal, setShowNewVisitModal] = useState(false);
   const [view, setView] = useState("overview");
 
-  const { data: patientsData, isLoading } = useQuery<PaginatedPatientsResponse>({
+  const { data: patientsData } = useQuery<PaginatedPatientsResponse>({
     queryKey: ["/api/doctor/patients", currentPage, searchTerm],
     queryFn: async () => {
       const params = new URLSearchParams({
@@ -64,6 +64,86 @@ export default function DoctorPortal() {
       return response.json();
     },
   });
+
+
+    const { data: dashboardData } = useQuery({
+        queryKey: ["/api/doctor/dashboard"],
+        queryFn: async () => {
+            const response = await fetch("/api/doctor/dashboard", {
+                credentials: "include",
+            });
+            if (!response.ok) throw new Error("Failed to fetch dashboard data");
+            return response.json();
+        },
+    });
+
+    const user = { username: 'test' }
+
+
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {dashboardData?.clinics?.map((data: any) => (
+          <Card key={data.clinic.id}>
+            <CardHeader>
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-hospital-square"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><path d="M9 8h1m4 0h1M8 12h8M8 16h8"></path></svg>
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{data.clinic.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {data.patientCount} patients
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.address}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.contactNumber}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <span>{data.clinic.email}</span>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium mb-2">Recent Patients</h4>
+                <div className="space-y-2">
+                  {data.recentPatients?.slice(0, 3).map((patient) => (
+                    <div key={patient.id} className="flex items-center justify-between text-sm">
+                      <span>{patient.fullName}</span>
+                      <span className="text-muted-foreground">
+                        {format(new Date(patient.lastVisit), 'MMM d')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" className="w-full">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Schedule
+                </Button>
+                <Button variant="outline" size="sm" className="w-full">
+                  <UserRound className="h-4 w-4 mr-2" />
+                  Patients
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
   const renderPatients = () => (
     <div className="space-y-6">
@@ -85,18 +165,17 @@ export default function DoctorPortal() {
 
       {/* Patients Grid */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {isLoading ? (
-          <div className="col-span-full flex justify-center py-8">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        ) : patientsData?.patients.length === 0 ? (
-          <div className="col-span-full text-center py-8 text-muted-foreground">
-            No patients found
-          </div>
-        ) : (
-          patientsData?.patients.map((data) => (
-            <Card
-              key={`${data.patient.id}-${data.patient.fullName}`}
+        {patientsData?.patients
+          // Remove duplicates based on name and date of birth
+          .filter((data, index, self) => 
+            index === self.findIndex((t) => (
+              t.patient.fullName === data.patient.fullName &&
+              t.patient.dateOfBirth === data.patient.dateOfBirth
+            ))
+          )
+          .map((data) => (
+            <Card 
+              key={`${data.patient.fullName}-${data.patient.dateOfBirth}`}
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
                 console.log("Patient card clicked:", data.patient.id);
@@ -115,7 +194,7 @@ export default function DoctorPortal() {
                       <p className="text-sm text-muted-foreground">
                         DOB: {format(new Date(data.patient.dateOfBirth), 'MMM dd, yyyy')}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                         {data.patient.mobile || 'No phone number'}
                       </p>
                     </div>
@@ -141,12 +220,11 @@ export default function DoctorPortal() {
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
+          ))}
       </div>
 
       {/* Pagination */}
-      {patientsData?.pagination && patientsData.pagination.pages > 1 && (
+      {patientsData?.pagination && (
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
@@ -182,7 +260,7 @@ export default function DoctorPortal() {
     </div>
   );
 
-  const renderOverview = () => <div>Overview</div>;
+
   const renderPrescriptions = () => <div>Prescriptions</div>;
   const renderQueue = () => <div>Queue</div>;
 
@@ -192,6 +270,11 @@ export default function DoctorPortal() {
       <header className="border-b bg-card px-6 py-4">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <h1 className="text-2xl font-semibold">Doctor Portal</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Dr. {user?.username}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -237,6 +320,34 @@ export default function DoctorPortal() {
                 </nav>
               </CardContent>
             </Card>
+
+            {/* Recent Patients */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Recent Patients</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {dashboardData?.recentPatients?.map((patient, index) => (
+                    <div
+                      key={`sidebar-recent-${patient.id}-${index}`}
+                      className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
+                      onClick={() => setSelectedPatientId(patient.id)}
+                    >
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <UserRound className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium">{patient.fullName}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Main Content */}
@@ -247,6 +358,7 @@ export default function DoctorPortal() {
             {view === "patients" && renderPatients()}
           </div>
         </div>
+
       </div>
     </div>
   );

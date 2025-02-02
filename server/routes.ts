@@ -853,14 +853,13 @@ export function registerRoutes(app: Express): Server {
     }
   });
   
-// Update the GET /api/doctor/patients endpoint to handle search
+// Update the GET /api/doctor/patients endpoint to support pagination
 app.get("/api/doctor/patients", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = 15;
     const offset = (page - 1) * limit;
-    const search = (req.query.search as string || "").trim();
 
     try {
       const [doctor] = await db
@@ -873,24 +872,13 @@ app.get("/api/doctor/patients", async (req, res) => {
         return res.status(404).send("Doctor not found");
       }
 
-      // Build search condition
-      let searchCondition = undefined;
-      if (search) {
-        searchCondition = sql`LOWER(patients.full_name) LIKE ${`%${search.toLowerCase()}%`}`;
-      }
-
-      // Get total count of matching patients
+      // Get total count of unique patients
       const [{ count }] = await db
         .select({
           count: sql<number>`COUNT(DISTINCT ${patientDoctorAssignments.patientId})::integer`
         })
         .from(patientDoctorAssignments)
-        .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
-        .where(and(
-          eq(patientDoctorAssignments.doctorId, doctor.id),
-          sql`patients.full_name IS NOT NULL AND TRIM(patients.full_name) != ''`,
-          searchCondition || sql`TRUE`
-        ));
+        .where(eq(patientDoctorAssignments.doctorId, doctor.id));
 
       // Get unique patients with their latest visit and active conditions
       const patientResults = await db
@@ -899,37 +887,34 @@ app.get("/api/doctor/patients", async (req, res) => {
           assignedAt: patientDoctorAssignments.assignedAt,
           lastVisit: sql<Date>`MAX(visit_records.visited_at)`.as('last_visit'),
           totalVisits: sql<number>`COUNT(DISTINCT visit_records.id)`.as('total_visits'),
-          clinic: {
-            id: clinics.id,
-            name: clinics.name
-          }
+          activeDiagnoses: sql<number>`COUNT(DISTINCT CASE WHEN diagnoses.status = 'Active' THEN diagnoses.id END)`.as('active_diagnoses'),
+          activePresc: sql<number>`COUNT(DISTINCT CASE WHEN prescriptions.is_active = true THEN prescriptions.id END)`.as('active_prescriptions')
         })
         .from(patientDoctorAssignments)
         .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
-        .leftJoin(visitRecords, eq(visitRecords.patientId, patients.id))
-        .leftJoin(clinics, eq(visitRecords.clinicId, clinics.id))
-        .where(and(
-          eq(patientDoctorAssignments.doctorId, doctor.id),
-          sql`patients.full_name IS NOT NULL AND TRIM(patients.full_name) != ''`,
-          searchCondition || sql`TRUE`
+        .leftJoin(visitRecords, and(
+          eq(visitRecords.patientId, patients.id),
+          eq(visitRecords.doctorId, doctor.id)
         ))
+        .leftJoin(diagnoses, and(
+          eq(diagnoses.patientId, patients.id),
+          eq(diagnoses.doctorId, doctor.id)
+        ))
+        .leftJoin(prescriptions, and(
+          eq(prescriptions.patientId, patients.id),
+          eq(prescriptions.doctorId, doctor.id)
+        ))
+        .where(eq(patientDoctorAssignments.doctorId, doctor.id))
         .groupBy(
           patients.id,
-          patientDoctorAssignments.assignedAt,
-          clinics.id,
-          clinics.name
+          patientDoctorAssignments.assignedAt
         )
         .orderBy(desc(sql<Date>`MAX(visit_records.visited_at)`))
         .limit(limit)
         .offset(offset);
 
       res.json({
-        patients: patientResults.map(result => ({
-          patient: result.patient,
-          lastVisit: result.lastVisit?.toISOString(),
-          totalVisits: result.totalVisits,
-          clinic: result.clinic
-        })),
+        patients: patientResults,
         pagination: {
           total: count,
           pages: Math.ceil(count / limit),
@@ -942,6 +927,7 @@ app.get("/api/doctor/patients", async (req, res) => {
       res.status(500).send("Failed to fetch patients");
     }
 });
+
   app.get("/api/doctor/patient-history/:patientId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { patientId } = req.params;
