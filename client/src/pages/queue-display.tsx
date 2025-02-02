@@ -4,6 +4,7 @@ import QueueNumber from "@/components/queue-number";
 import { Clock } from "lucide-react";
 import { PatientHistoryModal } from "@/components/PatientHistoryModal";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 type QueueEntryWithWaitTime = {
   id: number;
@@ -17,6 +18,7 @@ type QueueEntryWithWaitTime = {
 };
 
 export default function QueueDisplay() {
+  const { user } = useAuth();
   const { queue, isLoading } = useQueue();
   const typedQueue = queue as QueueEntryWithWaitTime[];
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
@@ -125,13 +127,14 @@ export default function QueueDisplay() {
           </Card>
         </div>
 
-        {/* Patient History Modal */}
         {selectedPatientId && (
           <PatientHistoryModal
             patientId={selectedPatientId}
             onClose={handleCloseModal}
             open={!!selectedPatientId}
             showNewVisitForm={showNewVisitForm}
+            doctorId={user?.id}
+            clinicId={currentPatient?.clinicId}
           />
         )}
       </div>

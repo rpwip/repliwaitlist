@@ -327,6 +327,8 @@ export default function DoctorPortal() {
       };
 
       setCurrentQueueEntry(formattedEntry);
+      setSelectedPatientId(entry.patientId || 0);
+      setShowNewVisitModal(true);
       startConsultation.mutate(entry.id);
     } catch (error) {
       console.error('Error starting consultation:', error);
@@ -337,7 +339,6 @@ export default function DoctorPortal() {
       });
     }
   };
-
 
   const handleSkipPatient = (queueId: number) => {
     skipPatient.mutate(queueId);
@@ -842,26 +843,14 @@ const renderQueue = () => (
       {selectedPatientId && (
         <PatientHistoryModal
           open={!!selectedPatientId}
-          onClose={() => setSelectedPatientId(null)}
-          patientId={selectedPatientId}
-        />
-      )}
-
-      {/* New Visit Record Modal */}
-      {showNewVisitModal && currentQueueEntry && (
-        <NewVisitRecordModal
-          open={showNewVisitModal}
-          onClose={() => setShowNewVisitModal(false)}
-          patientId={currentQueueEntry.patientId || 0}
-          doctorId={user?.id || 0}
-          clinicId={selectedClinicId || 0}
-          vitals={currentQueueEntry.vitals || {
-            bp: 'N/A',
-            temperature: 'N/A',
-            pulse: 'N/A',
-            spo2: 'N/A'
+          onClose={() => {
+            setSelectedPatientId(null);
+            setShowNewVisitModal(false);
           }}
-          visitReason={currentQueueEntry.visitReason || 'Not specified'}
+          patientId={selectedPatientId}
+          showNewVisitForm={showNewVisitModal}
+          doctorId={user?.id}
+          clinicId={selectedClinicId}
         />
       )}
   </div>
