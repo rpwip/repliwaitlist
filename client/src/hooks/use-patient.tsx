@@ -31,20 +31,20 @@ export function usePatient() {
         } else if (identifier.patientId) {
           queryParam = `patientId=${identifier.patientId}`;
         } else {
-          throw new Error("Either mobile number or patient ID must be provided");
+          throw new Error("Either mobile or patientId must be provided");
         }
 
         const res = await fetch(`/api/patient/profile?${queryParam}`);
         console.log('API response status:', res.status);
 
-        if (!res.ok) {
+        if (res.status === 404) {
+          console.log('Patient not found - returning null');
+          return null;
+        }
+
+        if (!res.ok && res.status !== 404) {
           const errorText = await res.text();
           console.error('API error response:', errorText);
-
-          if (res.status === 404) {
-            throw new Error("Patient not found. Please check the mobile number and try again.");
-          }
-
           throw new Error(errorText || "Failed to verify patient");
         }
 
@@ -57,27 +57,6 @@ export function usePatient() {
       }
     }
   });
-
-  const getPatientProfile = async (patientId: number) => {
-    try {
-      const res = await fetch(`/api/patient/profile/${patientId}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch patient profile");
-      }
-      return res.json();
-    } catch (error) {
-      console.error('Error fetching patient profile:', error);
-      throw error;
-    }
-  };
-
-  const usePatientProfile = (patientId: number | undefined) => {
-    return useQuery({
-      queryKey: [`/api/patient/profile/${patientId}`],
-      queryFn: () => getPatientProfile(patientId!),
-      enabled: !!patientId,
-    });
-  };
 
   const bookAppointmentMutation = useMutation({
     mutationFn: async (data: AppointmentData) => {
@@ -102,8 +81,6 @@ export function usePatient() {
 
   return {
     verifyPatient: verifyPatientMutation.mutateAsync,
-    getPatientProfile,
-    usePatientProfile,
     bookAppointment: bookAppointmentMutation.mutateAsync,
     isVerifying: verifyPatientMutation.isPending,
     isBooking: bookAppointmentMutation.isPending,
