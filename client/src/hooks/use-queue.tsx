@@ -148,6 +148,55 @@ export function useQueue() {
     }
   });
 
+  const confirmPaymentMutation = useMutation({
+    mutationFn: async (queueId: number) => {
+      console.log('Confirming payment for queue ID:', queueId);
+      const res = await apiRequest("POST", `/api/confirm-payment/${queueId}`);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Payment confirmation error:', errorText);
+        throw new Error(errorText || "Failed to confirm payment");
+      }
+      const data = await res.json();
+      console.log('Payment confirmation response:', data);
+      return data;
+    },
+    onSuccess: () => {
+      console.log('Payment confirmation successful, invalidating queue query');
+      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+      toast({
+        title: "Payment confirmed",
+        description: "Your queue number has been activated.",
+      });
+    },
+    onError: (error: Error) => {
+      console.error('Payment confirmation failed:', error);
+      toast({
+        title: "Payment confirmation failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async ({ queueId, transactionRef }: { queueId: number, transactionRef: string }) => {
+      console.log('Verifying payment:', { queueId, transactionRef });
+      const res = await apiRequest(
+        "GET",
+        `/api/verify-payment/${queueId}/${transactionRef}`
+      );
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Payment verification error:', errorText);
+        throw new Error(errorText || "Failed to verify payment");
+      }
+      const data = await res.json();
+      console.log('Payment verification response:', data);
+      return data;
+    }
+  });
+
   return {
     queue: queueQuery.data ?? [],
     clinics: clinicsQuery.data ?? [],
@@ -155,5 +204,7 @@ export function useQueue() {
     isError: queueQuery.isError || clinicsQuery.isError,
     isConnected,
     registerPatient: registerPatientMutation.mutateAsync,
+    confirmPayment: confirmPaymentMutation.mutateAsync,
+    verifyPayment: verifyPaymentMutation.mutateAsync,
   };
 }
