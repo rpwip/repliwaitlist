@@ -699,48 +699,75 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).send("Doctor not found");
       }
 
+      // First get clinic assignments with basic info
       const clinicAssignments = await db
         .select({
-          clinic: clinics,
-          assignment: doctorClinicAssignments,
-          patientCount: sql<number>`
-            COUNT(DISTINCT patient_doctor_assignments.patient_id)
-          `.as('patient_count'),
-          recentPatients: sql<any[]>`
-            COALESCE(
-              JSON_AGG(
-                DISTINCT jsonb_build_object(
-                  'id', patients.id,
-                  'fullName', patients.full_name,
-                  'lastVisit', patient_doctor_assignments.assigned_at
-                ) ORDER BY patient_doctor_assignments.assigned_at DESC
-              ) FILTER (WHERE patients.id IS NOT NULL),
-              '[]'::json
-            )
-          `.as('recent_patients')
+          clinicId: clinics.id,
+          clinicName: clinics.name,
+          clinicAddress: clinics.address,
+          clinicType: clinics.type,
+          clinicContactNumber: clinics.contactNumber,
+          assignmentId: doctorClinicAssignments.id,
+          isActive: doctorClinicAssignments.isActive
         })
         .from(doctorClinicAssignments)
         .innerJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
-        .leftJoin(
-          patientDoctorAssignments,
-          eq(patientDoctorAssignments.doctorId, doctorClinicAssignments.doctorId)
-        )
-        .leftJoin(
-          patients,
-          eq(patientDoctorAssignments.patientId, patients.id)
-        )
         .where(
           and(
             eq(doctorClinicAssignments.doctorId, doctor.id),
             eq(doctorClinicAssignments.isActive, true)
           )
-        )
-        .groupBy(doctorClinicAssignments.id, clinics.id);
+        );
 
-      res.json(clinicAssignments);
+      // Now get patient count and recent patients for each clinic
+      const clinicsWithDetails = await Promise.all(
+        clinicAssignments.map(async (clinic) => {
+          // Get patient count
+          const [{ count }] = await db
+            .select({
+              count: sql<number>`COUNT(DISTINCT ${patientDoctorAssignments.patientId})::integer`
+            })
+            .from(patientDoctorAssignments)
+            .where(eq(patientDoctorAssignments.doctorId, doctor.id));
+
+          // Get recent patients
+          const recentPatients = await db
+            .select({
+              id: patients.id,
+              fullName: patients.fullName,
+              lastVisit: patientDoctorAssignments.assignedAt
+            })
+            .from(patientDoctorAssignments)
+            .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
+            .where(eq(patientDoctorAssignments.doctorId, doctor.id))
+            .orderBy(desc(patientDoctorAssignments.assignedAt))
+            .limit(5);
+
+          return {
+            clinic: {
+              id: clinic.clinicId,
+              name: clinic.clinicName,
+              address: clinic.clinicAddress,
+              type: clinic.clinicType,
+              contactNumber: clinic.clinicContactNumber
+            },
+            assignment: {
+              id: clinic.assignmentId,
+              isActive: clinic.isActive
+            },
+            patientCount: count,
+            recentPatients
+          };
+        })
+      );
+
+      res.json(clinicsWithDetails);
     } catch (error) {
       console.error('Error fetching clinic data:', error);
-      res.status(500).send("Failed to fetch clinic data");
+      res.status(500).json({
+        error: 'Failed to fetch clinic data',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
@@ -896,7 +923,7 @@ app.get("/api/doctor/patients", async (req, res) => {
     try {
       const [diagnosis] = await db
         .insert(diagnoses)
-        .values(result.data)
+                .values(result.data)
         .returning();
 
       res.status(201).json(diagnosis);
