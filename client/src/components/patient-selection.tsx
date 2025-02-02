@@ -71,6 +71,7 @@ export default function PatientSelection({ patients, onBack }: PatientSelectionP
     }
 
     try {
+      console.log('Registering patient with clinic ID:', parseInt(selectedClinic));
       const result = await registerPatient({
         fullName: selectedPatient!.fullName,
         email: selectedPatient!.email,

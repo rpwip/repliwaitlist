@@ -152,8 +152,7 @@ export function useQueue() {
         const jsonResponse = await res.json();
         console.log('Registration API success response:', jsonResponse);
 
-        // Ensure the queue entry has the clinic ID
-        if (jsonResponse.queueEntry && !jsonResponse.queueEntry.clinicId) {
+        if (jsonResponse.queueEntry) {
           jsonResponse.queueEntry.clinicId = data.clinicId;
         }
 
