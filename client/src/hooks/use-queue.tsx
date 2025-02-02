@@ -104,6 +104,12 @@ export function useQueue() {
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     refetchOnMount: true,
     retry: 3,
+    onSuccess: (data) => {
+      console.log('Clinics data fetched successfully:', data);
+    },
+    onError: (error) => {
+      console.error('Error fetching clinics:', error);
+    }
   });
 
   const updateStatusMutation = useMutation({
@@ -133,6 +139,11 @@ export function useQueue() {
       throw error;
     }
   });
+
+  console.log('Current clinics data:', clinicsQuery.data);
+  console.log('Clinics loading state:', clinicsQuery.isLoading);
+  console.log('Clinics error state:', clinicsQuery.isError);
+
 
   return {
     queue: queueQuery.data ?? [],
