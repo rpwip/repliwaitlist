@@ -704,18 +704,18 @@ export function registerRoutes(app: Express): Server {
           clinic: clinics,
           assignment: doctorClinicAssignments,
           patientCount: sql<number>`
-            COUNT(DISTINCT pda.patient_id)
+            COUNT(DISTINCT patient_doctor_assignments.patient_id)
           `.as('patient_count'),
           recentPatients: sql<any[]>`
             COALESCE(
               JSON_AGG(
                 DISTINCT jsonb_build_object(
-                  'id', p.id,
-                  'fullName', p.full_name,
-                  'lastVisit', pda.assigned_at
-                ) ORDER BY pda.assigned_at DESC
-              ) FILTER (WHERE p.id IS NOT NULL),
-              '[]'
+                  'id', patients.id,
+                  'fullName', patients.full_name,
+                  'lastVisit', patient_doctor_assignments.assigned_at
+                ) ORDER BY patient_doctor_assignments.assigned_at DESC
+              ) FILTER (WHERE patients.id IS NOT NULL),
+              '[]'::json
             )
           `.as('recent_patients')
         })
@@ -723,14 +723,18 @@ export function registerRoutes(app: Express): Server {
         .innerJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
         .leftJoin(
           patientDoctorAssignments,
+          eq(patientDoctorAssignments.doctorId, doctorClinicAssignments.doctorId)
+        )
+        .leftJoin(
+          patients,
+          eq(patientDoctorAssignments.patientId, patients.id)
+        )
+        .where(
           and(
-            eq(patientDoctorAssignments.doctorId, doctorClinicAssignments.doctorId),
+            eq(doctorClinicAssignments.doctorId, doctor.id),
             eq(doctorClinicAssignments.isActive, true)
           )
         )
-        .as('pda')
-        .leftJoin(patients.as('p'), eq(patientDoctorAssignments.patientId, sql<number>`p.id`))
-        .where(eq(doctorClinicAssignments.doctorId, doctor.id))
         .groupBy(doctorClinicAssignments.id, clinics.id);
 
       res.json(clinicAssignments);
@@ -900,9 +904,7 @@ app.get("/api/doctor/patients", async (req, res) => {
       console.error('Error creating diagnosis:', error);
       res.status(500).send("Failed to create diagnosis");
     }
-  });
-
-  app.post("/api/doctor/prescriptions", async (req, res) => {
+  });app.post("/api/doctor/prescriptions", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
     const result = insertPrescriptionSchema.safeParse(req.body);
