@@ -339,7 +339,7 @@ export default function DoctorPortal() {
                   >
                     {dashboardData.prescriptionStats?.brandDistribution.map((entry, index) => (
                       <Cell 
-                        key={`cell-${index}`} 
+                        key={`cell-${entry.brandName}-${index}`}
                         fill={COLORS[index % COLORS.length]}
                         opacity={entry.isCloudCarePartner ? 1 : 0.6}
                       />
@@ -357,7 +357,7 @@ export default function DoctorPortal() {
                 .filter(brand => !brand.isCloudCarePartner)
                 .map((brand, index) => (
                   <div 
-                    key={brand.brandName}
+                    key={`brand-${brand.brandName}-${index}`}
                     className="p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -775,10 +775,11 @@ export default function DoctorPortal() {
               </CardHeader>
               <CardContent className="p-4">
                 <div className="space-y-4">
-                  {dashboardData?.recentPatients?.map((patient) => (
+                  {dashboardData?.recentPatients?.map((patient, index) => (
                     <div
-                      key={`recent-${patient.id}`}
+                      key={`recent-patient-${patient.id}-${index}`}
                       className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
+                      onClick={() => setSelectedPatientId(patient.id)}
                     >
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                         <UserRound className="h-5 w-5 text-primary" />
