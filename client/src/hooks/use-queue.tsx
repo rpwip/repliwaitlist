@@ -102,6 +102,7 @@ export function useQueue() {
     queryFn: async () => {
       try {
         console.log('[useQueue] Fetching queue data');
+        console.log('[useQueue] User:', user);
         const res = await apiRequest("GET", "/api/queue", undefined, {
           credentials: 'include'
         });
