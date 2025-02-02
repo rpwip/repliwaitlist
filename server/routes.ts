@@ -573,8 +573,8 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to fetch clinic data");
     }
   });
-
-  // Update the GET /api/doctor/patients endpoint to support pagination
+  
+// Update the GET /api/doctor/patients endpoint to support pagination
 app.get("/api/doctor/patients", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -593,7 +593,7 @@ app.get("/api/doctor/patients", async (req, res) => {
         return res.status(404).send("Doctor not found");
       }
 
-      // Get total count first
+      // Get total count of unique patients
       const [{ count }] = await db
         .select({
           count: sql<number>`COUNT(DISTINCT ${patientDoctorAssignments.patientId})::integer`
@@ -601,12 +601,11 @@ app.get("/api/doctor/patients", async (req, res) => {
         .from(patientDoctorAssignments)
         .where(eq(patientDoctorAssignments.doctorId, doctor.id));
 
-      // Then get the paginated patient data
+      // Get unique patients with their latest visit and active conditions
       const patientResults = await db
         .select({
           patient: patients,
           assignedAt: patientDoctorAssignments.assignedAt,
-          clinic: clinics,
           lastVisit: sql<Date>`MAX(visit_records.visited_at)`.as('last_visit'),
           totalVisits: sql<number>`COUNT(DISTINCT visit_records.id)`.as('total_visits'),
           activeDiagnoses: sql<number>`COUNT(DISTINCT CASE WHEN diagnoses.status = 'Active' THEN diagnoses.id END)`.as('active_diagnoses'),
@@ -614,8 +613,6 @@ app.get("/api/doctor/patients", async (req, res) => {
         })
         .from(patientDoctorAssignments)
         .innerJoin(patients, eq(patientDoctorAssignments.patientId, patients.id))
-        .leftJoin(doctorClinicAssignments, eq(doctorClinicAssignments.doctorId, patientDoctorAssignments.doctorId))
-        .leftJoin(clinics, eq(doctorClinicAssignments.clinicId, clinics.id))
         .leftJoin(visitRecords, and(
           eq(visitRecords.patientId, patients.id),
           eq(visitRecords.doctorId, doctor.id)
@@ -631,8 +628,7 @@ app.get("/api/doctor/patients", async (req, res) => {
         .where(eq(patientDoctorAssignments.doctorId, doctor.id))
         .groupBy(
           patients.id,
-          patientDoctorAssignments.assignedAt,
-          clinics.id
+          patientDoctorAssignments.assignedAt
         )
         .orderBy(desc(sql<Date>`MAX(visit_records.visited_at)`))
         .limit(limit)

@@ -617,7 +617,9 @@ export default function DoctorPortal() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {patientsData?.patients
             .filter(data => 
-              data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+              data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              data.patient.mobile.includes(searchTerm) ||
+              data.patient.email.toLowerCase().includes(searchTerm.toLowerCase())
             )
             .map((data, index) => (
               <Card 
@@ -647,12 +649,12 @@ export default function DoctorPortal() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Clinic:</span>
-                      <span className="font-medium">{data.clinic?.name || 'Not assigned'}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Active Prescriptions:</span>
                       <span className="font-medium">{data.activePresc}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Contact:</span>
+                      <span className="font-medium">{data.patient.mobile}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Assigned:</span>
