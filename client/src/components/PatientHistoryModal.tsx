@@ -109,9 +109,9 @@ const visitRecordSchema = z.object({
   comments: z.string(),
 });
 
-export function PatientHistoryModal({ 
-  patientId, 
-  onClose, 
+export function PatientHistoryModal({
+  patientId,
+  onClose,
   open,
   showNewVisitForm = false,
   doctorId,
@@ -427,22 +427,25 @@ export function PatientHistoryModal({
                             date: v.visitedAt,
                             type: "Visit",
                             details: v.diagnosis,
+                            uniqueId: `visit-${v.id}`
                           })) || []),
                           ...(history?.diagnoses?.map(d => ({
                             date: d.diagnosedAt,
                             type: "Diagnosis",
                             details: d.condition,
+                            uniqueId: `diagnosis-${d.id}`
                           })) || []),
                           ...(history?.prescriptions?.map(p => ({
                             date: p.createdAt,
                             type: "Prescription",
                             details: p.medications.map(m => m.name).join(", "),
+                            uniqueId: `prescription-${p.id}`
                           })) || [])
                         ]
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                           .slice(0, 10)
-                          .map((activity, idx) => (
-                            <TableRow key={idx}>
+                          .map((activity) => (
+                            <TableRow key={activity.uniqueId}>
                               <TableCell>{format(new Date(activity.date), 'PP')}</TableCell>
                               <TableCell>
                                 <Badge variant={
