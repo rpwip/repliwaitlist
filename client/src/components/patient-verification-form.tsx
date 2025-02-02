@@ -82,16 +82,23 @@ export default function PatientVerificationForm() {
       if (Array.isArray(response)) {
         setFoundPatients(response);
         setIsNewPatient(false);
+        setSelectedPatient(null);
       } else {
+        // Single patient found - set as selected
         setSelectedPatient(response);
+        setFoundPatients([]);
         setIsNewPatient(false);
+        // If patient already has a queue entry, this will trigger showing payment
+        if (response.queueEntry) {
+          setRegistrationData({ patient: response, queueEntry: response.queueEntry });
+        }
       }
 
       toast({
-        title: "Patient(s) found",
+        title: Array.isArray(response) ? "Multiple Patients Found" : "Patient Found",
         description: Array.isArray(response) && response.length > 1
           ? "Please select a patient to proceed"
-          : "Proceeding to payment...",
+          : "Proceeding with verification...",
       });
     } catch (error) {
       console.log("Patient not found, setting up registration form");
@@ -99,7 +106,7 @@ export default function PatientVerificationForm() {
       setFoundPatients([]);
       setSelectedPatient(null);
 
-      // Initialize registration form with mobile number
+      // Initialize registration form with mobile number only
       registrationForm.reset({
         fullName: "",
         email: "",
@@ -146,6 +153,7 @@ export default function PatientVerificationForm() {
     }
   };
 
+  // Show payment QR if we have registration data or selected patient with queue entry
   if (registrationData?.queueEntry || selectedPatient?.queueEntry) {
     const queueId = registrationData?.queueEntry?.id || selectedPatient?.queueEntry?.id;
     if (!queueId) {
@@ -175,6 +183,7 @@ export default function PatientVerificationForm() {
     );
   }
 
+  // Show patient selection if multiple patients found
   if (foundPatients.length > 0) {
     return (
       <Card>
@@ -212,6 +221,7 @@ export default function PatientVerificationForm() {
     );
   }
 
+  // Show verification form if not registering new patient
   if (!isNewPatient) {
     return (
       <Form {...verificationForm}>
@@ -254,6 +264,7 @@ export default function PatientVerificationForm() {
     );
   }
 
+  // Show registration form for new patient
   return (
     <Form {...registrationForm}>
       <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
