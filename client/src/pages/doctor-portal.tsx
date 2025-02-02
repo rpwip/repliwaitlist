@@ -45,6 +45,7 @@ import type {
   SelectClinic,
 } from "@db/schema";
 import { useAuth } from "@/hooks/use-auth";
+import { PatientHistoryModal } from "@/components/PatientHistoryModal";
 
 type DoctorDashboardData = {
   metrics: SelectDoctorMetrics[];
@@ -595,107 +596,121 @@ export default function DoctorPortal() {
     </div>
   );
 
-    const renderPatients = () => (
-    <div className="space-y-6">
-      {/* Search Box */}
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search patients..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+  const renderPatients = () => {
+    const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+
+    return (
+      <div className="space-y-6">
+        {/* Search Box */}
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search patients..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Patients Grid */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {patientsData?.patients
-          .filter(data => 
-            data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-          .map((data) => (
-            <Card key={data.patient.id} className="hover:bg-accent/50 transition-colors">
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <UserRound className="h-6 w-6 text-primary" />
+        {/* Patients Grid */}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {patientsData?.patients
+            .filter(data => 
+              data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .map((data) => (
+              <Card 
+                key={data.patient.id} 
+                className="hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => setSelectedPatientId(data.patient.id)}
+              >
+                <CardHeader>
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <UserRound className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{data.patient.fullName}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {data.totalVisits} visits • {data.activeDiagnoses} active conditions
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg">{data.patient.fullName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {data.totalVisits} visits • {data.activeDiagnoses} active conditions
-                    </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Last Visit:</span>
+                      <span className="font-medium">
+                        {data.lastVisit ? format(new Date(data.lastVisit), 'PPP') : 'No visits yet'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Clinic:</span>
+                      <span className="font-medium">{data.clinic?.name || 'Not assigned'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Active Prescriptions:</span>
+                      <span className="font-medium">{data.activePresc}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Assigned:</span>
+                      <span className="font-medium">
+                        {format(new Date(data.assignedAt), 'PP')}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Last Visit:</span>
-                    <span className="font-medium">
-                      {data.lastVisit ? format(new Date(data.lastVisit), 'PPP') : 'No visits yet'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Clinic:</span>
-                    <span className="font-medium">{data.clinic?.name || 'Not assigned'}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Active Prescriptions:</span>
-                    <span className="font-medium">{data.activePresc}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Assigned:</span>
-                    <span className="font-medium">
-                      {format(new Date(data.assignedAt), 'PP')}
-                    </span>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" className="w-full">
-                    <ClipboardList className="h-4 w-4 mr-2" />
-                    Records
-                  </Button>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    Schedule
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-      </div>
-
-      {/* Pagination */}
-      {patientsData?.pagination && (
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {patientsData.pagination.pages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(page => Math.min(patientsData.pagination.pages, page + 1))}
-            disabled={currentPage === patientsData.pagination.pages}
-          >
-            Next
-          </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" className="w-full">
+                      <ClipboardList className="h-4 w-4 mr-2" />
+                      Records
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Schedule
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
         </div>
-      )}
-    </div>
-  );
+
+        {/* Pagination */}
+        {patientsData?.pagination && (
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage} of {patientsData.pagination.pages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(page => Math.min(patientsData.pagination.pages, page + 1))}
+              disabled={currentPage === patientsData.pagination.pages}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+
+        {/* Patient History Modal */}
+        <PatientHistoryModal 
+          patientId={selectedPatientId} 
+          onClose={() => setSelectedPatientId(null)}
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
