@@ -144,8 +144,11 @@ type QueueEntry = {
   id: number;
   queueNumber: number;
   status: string;
-  patientId: number;
-  fullName: string;
+  patientId: number;  // Add explicit patientId field
+  patient: {
+    id: number;
+    fullName: string;
+  };
   estimatedWaitTime: number;
   clinicId: number;
   vitals?: {
@@ -250,14 +253,8 @@ export default function DoctorPortal() {
   const { data: queueData, refetch: refetchQueue } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
-      console.log('[DoctorPortal] Fetching queue data for clinic:', selectedClinicId);
-      if (!selectedClinicId) {
-        console.log('[DoctorPortal] No clinic selected, skipping queue fetch');
-        return null;
-      }
-      const response = await fetch(`/api/queue/${selectedClinicId}`, {
-        credentials: 'include'
-      });
+      if (!selectedClinicId) return null;
+      const response = await fetch(`/api/queue/${selectedClinicId}`);
       if (!response.ok) throw new Error("Failed to fetch queue");
       const data = await response.json();
       console.log("Raw queue data from API:", data);
@@ -365,7 +362,7 @@ export default function DoctorPortal() {
         clinicId: entry.clinicId
       });
 
-      if (!entry.patientId && !entry.patient?.id) {
+      if (!entry.patient?.id) {
         console.error("Patient ID missing from queue entry:", entry);
         toast({
           title: "Error",
@@ -375,11 +372,9 @@ export default function DoctorPortal() {
         return;
       }
 
-      const patientId = entry.patientId || entry.patient?.id;
-      
       // Update state for modal
-      console.log("Setting selected patient ID:", patientId);
-      setSelectedPatientId(patientId);
+      console.log("Setting selected patient ID:", entry.patient.id);
+      setSelectedPatientId(entry.patient.id);
       setCurrentQueueEntry(entry);
       setShowNewVisitModal(true);
 

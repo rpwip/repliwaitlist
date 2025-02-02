@@ -1,18 +1,14 @@
-
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@db";
-import { queueEntries, patients, doctors, doctorClinicAssignments } from "@db/schema";
+import { queueEntries, patients } from "@db/schema";
 
 export async function getClinicQueue(clinicId: number) {
   console.log('Fetching queue entries for clinic', clinicId);
   try {
-    console.log('[DB Query] Starting queue fetch for clinic:', clinicId);
-    console.log('[DB Query] Query parameters:', { clinicId });
     const entries = await db.query.queueEntries.findMany({
       where: eq(queueEntries.clinicId, clinicId),
       with: {
-        patient: true,
-        clinic: true
+        patient: true
       },
       orderBy: (qe) => [qe.queueNumber]
     });
@@ -24,16 +20,11 @@ export async function getClinicQueue(clinicId: number) {
       id: entry.id,
       queueNumber: entry.queueNumber,
       status: entry.status,
+      fullName: entry.patient.fullName,
       patientId: entry.patientId,
-      patient: {
-        id: entry.patient.id,
-        fullName: entry.patient.fullName,
-      },
       estimatedWaitTime: entry.estimatedWaitTime,
       clinicId: entry.clinicId,
-      createdAt: entry.createdAt,
-      vitals: entry.vitals,
-      visitReason: entry.visitReason
+      createdAt: entry.createdAt
     }));
 
     console.log('Formatted entries:', formattedEntries);

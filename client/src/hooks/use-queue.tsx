@@ -101,20 +101,9 @@ export function useQueue() {
     queryKey: ["/api/queue"],
     queryFn: async () => {
       try {
-        console.log('[useQueue] Fetching queue data');
-        console.log('[useQueue] User:', user);
         const res = await apiRequest("GET", "/api/queue", undefined, {
           credentials: 'include'
         });
-        const data = await res.json();
-        console.log('[useQueue] Raw queue response:', data);
-          credentials: 'include'
-        });
-        if (res.ok) {
-          const data = await res.json();
-          console.log('[useQueue] Received queue data:', data);
-          return data;
-        }
         if (!res.ok) {
           const errorText = await res.text();
           console.error('Queue fetch error:', errorText);
