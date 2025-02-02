@@ -11,6 +11,18 @@ type Clinic = {
   type: string;
 };
 
+type QueueEntry = {
+  id: number;
+  queueNumber: number;
+  status: string;
+  patient: {
+    id: number;
+    fullName: string;
+  };
+  estimatedWaitTime: number;
+  clinicId: number;
+};
+
 export function useQueue() {
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
@@ -46,8 +58,6 @@ export function useQueue() {
             const data = JSON.parse(event.data);
             if (data.type === "QUEUE_UPDATE") {
               queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
-            } else if (data.type === "CONNECTED") {
-              console.log("WebSocket connection confirmed");
             }
           } catch (error) {
             console.error('WebSocket message parsing error:', error);
@@ -68,11 +78,8 @@ export function useQueue() {
           if (reconnectAttempts < maxReconnectAttempts) {
             const timeout = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
             reconnectAttempts++;
-
-            console.log(`Attempting to reconnect in ${timeout}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
             reconnectTimeoutRef.current = setTimeout(connect, timeout);
           } else {
-            console.log('Max reconnection attempts reached');
             toast({
               title: "Connection Status",
               description: "Using offline mode. Data will update periodically.",
@@ -101,12 +108,12 @@ export function useQueue() {
     };
   }, [toast]);
 
-  const queueQuery = useQuery<any[]>({
+  const queueQuery = useQuery<QueueEntry[]>({
     queryKey: ["/api/queue"],
     refetchInterval: isConnected ? false : 5000,
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 5000),
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('Error fetching queue:', error);
       toast({
         title: "Queue Update Failed",
@@ -124,7 +131,27 @@ export function useQueue() {
     refetchOnReconnect: true,
     staleTime: 0,
     gcTime: 0,
+    onSuccess: (data: Clinic[]) => {
+      console.log('Clinics query succeeded:', data);
+    },
+    onError: (error: Error) => {
+      console.error('Clinics query failed:', error);
+      toast({
+        title: "Error Loading Clinics",
+        description: "Failed to load clinic data. Please refresh the page.",
+        variant: "destructive",
+      });
+    }
   });
+
+  useEffect(() => {
+    console.log('Clinics Query State:', {
+      data: clinicsQuery.data,
+      isLoading: clinicsQuery.isLoading,
+      isError: clinicsQuery.isError,
+      error: clinicsQuery.error
+    });
+  }, [clinicsQuery.data, clinicsQuery.isLoading, clinicsQuery.isError, clinicsQuery.error]);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ queueId, status }: { queueId: number; status: string }) => {
@@ -148,7 +175,7 @@ export function useQueue() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('Registration failed:', error);
       throw error;
     }

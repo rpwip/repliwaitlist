@@ -2,7 +2,7 @@ import { useQueue } from "@/hooks/use-queue";
 import { Card } from "@/components/ui/card";
 import QueueNumber from "@/components/queue-number";
 import { Clock, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import {
   Select,
   SelectContent,
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type QueueEntryWithWaitTime = {
   id: number;
@@ -25,19 +26,32 @@ type QueueEntryWithWaitTime = {
 };
 
 export default function QueueDisplay() {
-  const [selectedClinicId, setSelectedClinicId] = useState<number>();
-  const { queue, isLoading, clinics } = useQueue();
-  const typedQueue = queue as QueueEntryWithWaitTime[];
+  const [selectedClinicId, setSelectedClinicId] = useState<number | undefined>();
+  const { queue, isLoading, clinics, isError } = useQueue();
+  const typedQueue = (queue || []) as QueueEntryWithWaitTime[];
   const currentDate = new Date();
   const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
-  // Set default clinic to Yazh Health Care (id: 15)
+  // Set default clinic to first available clinic
   useEffect(() => {
     if (clinics && clinics.length > 0) {
       const yazhClinic = clinics.find(clinic => clinic.name === "Yazh Health Care");
       setSelectedClinicId(yazhClinic?.id ?? clinics[0].id);
     }
   }, [clinics]);
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-background p-8">
+        <Alert variant="destructive" className="max-w-md mx-auto">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Failed to load clinic data. Please refresh the page.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -75,7 +89,7 @@ export default function QueueDisplay() {
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {clinics?.map((clinic) => (
+              {(clinics || []).map((clinic) => (
                 <SelectItem
                   key={clinic.id}
                   value={clinic.id.toString()}
