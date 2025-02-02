@@ -326,7 +326,8 @@ export function registerRoutes(app: Express): Server {
         .values({
           patientId: patient.id,
           queueNumber: nextQueueNumber,
-          status: "pending" // Will be set to "waiting" after payment
+          status: "pending", // Will be set to "waiting" after payment
+          clinicId: req.body.clinicId // Use the clinic ID from the request
         })
         .returning();
 
@@ -354,7 +355,7 @@ export function registerRoutes(app: Express): Server {
       if (status === "SUCCESS" && amount === pendingTxn.amount) {
         const [entry] = await db
           .update(queueEntries)
-          .set({ isPaid: true })
+          .set({ isPaid: true, status: 'waiting' }) // Mark as paid and set status to 'waiting'
           .where(eq(queueEntries.id, pendingTxn.queueId))
           .returning();
 
@@ -501,19 +502,16 @@ export function registerRoutes(app: Express): Server {
         });
       }
 
-      // Get queue entries for the specified clinic
+      // Get queue entries for the specified clinic with a simpler structure
       const entries = await db
         .select({
           id: queueEntries.id,
           queueNumber: queueEntries.queueNumber,
           status: queueEntries.status,
           createdAt: queueEntries.createdAt,
-          visitReason: queueEntries.visitReason,
-          vitals: queueEntries.vitals,
-          patientId: queueEntries.patientId,
-          patientName: patients.fullName,
-          patientDob: patients.dateOfBirth,
-          patientGender: patients.gender
+          isPaid: queueEntries.isPaid,
+          patientId: patients.id,
+          patientName: patients.fullName
         })
         .from(queueEntries)
         .innerJoin(patients, eq(queueEntries.patientId, patients.id))
@@ -529,22 +527,19 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(queueEntries.queueNumber);
 
-      // Calculate estimated wait time and format response
+      // If no entries found, return empty array instead of null
+      if (!entries.length) {
+        return res.json([]);
+      }
+
+      // Calculate wait time with a simpler structure
       const avgWaitTime = await calculateAverageWaitTime();
       const queueWithWaitTimes = entries.map((entry) => ({
-        id: entry.id, // Ensure unique key for React
+        id: entry.id,
         queueNumber: entry.queueNumber,
         status: entry.status,
-        createdAt: entry.createdAt,
-        visitReason: entry.visitReason,
-        vitals: entry.vitals,
-        estimatedWaitTime: Math.ceil(avgWaitTime * entry.queueNumber),
-        patient: {
-          id: entry.patientId,
-          fullName: entry.patientName,
-          dateOfBirth: entry.patientDob,
-          gender: entry.patientGender
-        }
+        patientName: entry.patientName,
+        estimatedWaitTime: Math.ceil(avgWaitTime * entry.queueNumber)
       }));
 
       res.json(queueWithWaitTimes);
