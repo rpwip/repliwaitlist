@@ -55,10 +55,8 @@ export default function PatientVerificationForm() {
   });
 
   const handleVerification = async (data: { mobile: string }) => {
-    console.log("Starting verification with mobile:", data.mobile);
     try {
       const response = await verifyPatient({ mobile: data.mobile });
-      console.log("Verification response:", response);
 
       // Clear previous states
       setRegistrationData(null);
@@ -66,15 +64,11 @@ export default function PatientVerificationForm() {
       setSelectedPatient(null);
 
       if (!response) {
-        console.log("No patient found, preparing registration form");
         setIsNewPatient(true);
-
-        // Reset registration form with only mobile number
-        registrationForm.reset({
-          fullName: "",
-          email: "",
-          mobile: data.mobile,
-        });
+        // Reset registration form with mobile only
+        registrationForm.setValue("mobile", data.mobile);
+        registrationForm.setValue("fullName", "");
+        registrationForm.setValue("email", "");
 
         toast({
           title: "New Patient",
@@ -87,21 +81,16 @@ export default function PatientVerificationForm() {
       setIsNewPatient(false);
 
       if (Array.isArray(response)) {
-        console.log("Multiple patients found:", response.length);
         setFoundPatients(response);
         toast({
           title: "Multiple Patients Found",
           description: "Please select a patient to proceed",
         });
       } else {
-        console.log("Single patient found:", response);
         setSelectedPatient(response);
-
         if (response.queueEntry) {
-          console.log("Patient has existing queue entry:", response.queueEntry);
           setRegistrationData({ patient: response, queueEntry: response.queueEntry });
         }
-
         toast({
           title: "Patient Found",
           description: response.queueEntry 
@@ -120,7 +109,6 @@ export default function PatientVerificationForm() {
   };
 
   const handleRegistration = async (data: PatientFormData) => {
-    console.log("Starting registration with data:", data);
     try {
       const payload = {
         fullName: data.fullName.trim(),
@@ -128,10 +116,7 @@ export default function PatientVerificationForm() {
         mobile: data.mobile.trim(),
       };
 
-      console.log("Sending registration payload:", payload);
       const result = await registerPatient(payload);
-      console.log("Registration success:", result);
-
       setRegistrationData(result);
       toast({
         title: "Registration successful",
@@ -147,7 +132,7 @@ export default function PatientVerificationForm() {
     }
   };
 
-  // Show payment QR if we have registration data or selected patient with queue entry
+  // Show payment QR if registration complete
   if (registrationData?.queueEntry || (selectedPatient?.queueEntry && !isNewPatient)) {
     const queueEntry = registrationData?.queueEntry || selectedPatient?.queueEntry;
     return (
@@ -186,7 +171,6 @@ export default function PatientVerificationForm() {
               variant="outline"
               className="w-full justify-start"
               onClick={() => {
-                console.log("Selected patient:", patient);
                 setSelectedPatient(patient);
                 setFoundPatients([]);
               }}
@@ -218,7 +202,7 @@ export default function PatientVerificationForm() {
                 <FormLabel>Full Name</FormLabel>
                 <FormControl>
                   <Input 
-                    placeholder="Enter your full name"
+                    placeholder={getTranslation('fullNamePlaceholder', language)}
                     {...field}
                   />
                 </FormControl>
@@ -236,7 +220,7 @@ export default function PatientVerificationForm() {
                 <FormControl>
                   <Input 
                     type="email"
-                    placeholder="Enter your email address"
+                    placeholder={getTranslation('emailPlaceholder', language)}
                     {...field}
                   />
                 </FormControl>
@@ -279,7 +263,7 @@ export default function PatientVerificationForm() {
               <FormLabel>Mobile Number</FormLabel>
               <FormControl>
                 <Input 
-                  placeholder="Enter your mobile number"
+                  placeholder={getTranslation('mobilePlaceholder', language)}
                   {...field}
                 />
               </FormControl>
