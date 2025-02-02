@@ -663,8 +663,9 @@ export function registerRoutes(app: Express): Server {
           queueNumber: queueEntries.queueNumber,
           status: queueEntries.status,
           isPaid: queueEntries.isPaid,
-          patientId: patients.id,
-          fullName: patients.fullName, // Changed from patientName to fullName for consistency
+          patientId: queueEntries.patientId,
+          fullName: patients.fullName,
+          clinicId: queueEntries.clinicId,
           createdAt: queueEntries.createdAt
         })
         .from(queueEntries)

@@ -144,11 +144,8 @@ type QueueEntry = {
   id: number;
   queueNumber: number;
   status: string;
-  patientId: number;  // Add explicit patientId field
-  patient: {
-    id: number;
-    fullName: string;
-  };
+  patientId: number;
+  fullName: string;
   estimatedWaitTime: number;
   clinicId: number;
   vitals?: {
