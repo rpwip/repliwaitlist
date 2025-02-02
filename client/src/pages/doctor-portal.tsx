@@ -139,19 +139,17 @@ type TopBrandData = {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// Update the QueueEntry type to match queue-display.tsx
 type QueueEntry = {
-  key: string;
   id: number;
   queueNumber: number;
   status: string;
-  fullName: string;
-  estimatedWaitTime: number;
-  createdAt: string;
-  patientId?: number;
-  patient?: {
-    fullName: string;
+  patient: {
     id: number;
+    fullName: string;
   };
+  estimatedWaitTime: number;
+  clinicId: number;
   vitals?: {
     bp?: string;
     temperature?: string;
@@ -249,27 +247,14 @@ export default function DoctorPortal() {
     enabled: view === "patients" && !!user?.id,
   });
 
+  // Update the queue data fetching
   const { data: queueData, refetch: refetchQueue } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
       if (!selectedClinicId) return null;
       const response = await fetch(`/api/queue/${selectedClinicId}`);
       if (!response.ok) throw new Error("Failed to fetch queue");
-      const data = await response.json();
-      return data.map((entry: any) => ({
-        ...entry,
-        id: entry.id,
-        queueNumber: entry.queueNumber,
-        status: entry.status,
-        patient: {
-          id: entry.patientId,
-          fullName: entry.patient?.fullName || entry.fullName
-        },
-        clinicId: selectedClinicId,
-        estimatedWaitTime: entry.estimatedWaitTime || 0,
-        vitals: entry.vitals || null,
-        visitReason: entry.visitReason || null
-      }));
+      return response.json();
     },
     enabled: !!selectedClinicId,
   });
@@ -323,7 +308,7 @@ export default function DoctorPortal() {
   });
   
   const handleNewVisit = (entry: QueueEntry) => {
-    if (!entry.patient?.id && !entry.patientId) {
+    if (!entry.patient?.id) {
       toast({
         title: "Error",
         description: "Patient ID is missing",
@@ -332,16 +317,17 @@ export default function DoctorPortal() {
       return;
     }
 
-    setSelectedPatientId(entry.patient?.id || entry.patientId || 0);
+    setSelectedPatientId(entry.patient?.id);
     setCurrentQueueEntry(entry);
     setShowNewVisitModal(true);
   };
   
+  // Update the handleStartConsultation function
   const handleStartConsultation = (entry: QueueEntry) => {
     try {
       console.log("Starting consultation for:", entry);
 
-      if (!entry.patient?.id && !entry.patientId) {
+      if (!entry.patient?.id) {
         toast({
           title: "Error",
           description: "Patient ID is missing",
@@ -349,30 +335,11 @@ export default function DoctorPortal() {
         });
         return;
       }
-  
-      const formattedEntry = {
-        ...entry,
-        patient: {
-          fullName: entry.patient?.fullName || entry.fullName || '',
-          id: entry.patient?.id || entry.patientId || 0
-        },
-        patientId: entry.patient?.id || entry.patientId || 0,
-        clinicId: selectedClinicId,
-        vitals: entry.vitals || {
-          bp: 'N/A',
-          temperature: 'N/A',
-          pulse: 'N/A',
-          spo2: 'N/A'
-        },
-        visitReason: entry.visitReason || 'Not specified'
-      };
-  
-      // Update state for modal
-      setCurrentQueueEntry(formattedEntry);
-      setSelectedPatientId(formattedEntry.patientId);
+
+      setCurrentQueueEntry(entry);
+      setSelectedPatientId(entry.patient.id);
       setShowNewVisitModal(true);
-  
-      // Make the API call to start consultation
+
       startConsultation.mutate(entry.id, {
         onSuccess: () => {
           console.log("Successfully started consultation");
@@ -747,6 +714,7 @@ export default function DoctorPortal() {
     </div>
   );
   
+// Update the queue rendering section
 const renderQueue = () => (
   <div className="space-y-6">
     {/* Clinic Selector and Date */}
@@ -769,7 +737,7 @@ const renderQueue = () => (
           ))}
         </SelectContent>
       </Select>
-      <span className="text-lg font-medium">{format(new Date(), "EEEE, dd MMMM yyyy")}</span>
+      <span className="text-lg font-medium">{formattedDate}</span>
     </div>
 
     {/* Queue and Patient Details Grid */}
@@ -798,7 +766,7 @@ const renderQueue = () => (
                   </div>
                   <div>
                     <p className="font-medium">
-                      #{entry.queueNumber} - {entry.patient?.fullName || entry.fullName}
+                      #{entry.queueNumber} - {entry.patient.fullName}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
@@ -847,7 +815,7 @@ const renderQueue = () => (
                 </div>
                 <div>
                   <h3 className="text-lg font-medium">
-                    {currentQueueEntry.patient?.fullName || currentQueueEntry.fullName}
+                    {currentQueueEntry.patient.fullName}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Queue #{currentQueueEntry.queueNumber}
@@ -887,7 +855,7 @@ const renderQueue = () => (
               <div className="flex space-x-2 mt-4">
                 <Button 
                   className="flex-1"
-                  onClick={() => handleNewVisit(currentQueueEntry)}
+                  onClick={() => handleStartConsultation(currentQueueEntry)}
                 >
                   Start Consult
                 </Button>
