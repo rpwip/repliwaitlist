@@ -159,6 +159,7 @@ type QueueEntry = {
   visitReason?: string;
 };
 
+
 export default function DoctorPortal() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -289,7 +290,6 @@ export default function DoctorPortal() {
     },
     enabled: !!selectedClinicId,
   });
-
 
   const startConsultation = useMutation({
     mutationFn: async (queueId: number) => {
@@ -825,7 +825,7 @@ const renderQueue = () => (
       {/* Right Side - Current Patient Details */}
       <Card>
         <CardHeader>
-          <CardTitle>Patient Details</CardTitle>
+          <CardTitle>Current Consultation</CardTitle>
         </CardHeader>
         <CardContent>
           {currentQueueEntry ? (
@@ -897,6 +897,50 @@ const renderQueue = () => (
         </CardContent>
       </Card>
     </div>
+
+    {/* Completed Patients Section */}
+    <Card>
+      <CardHeader>
+        <CardTitle>Patients Seen Today</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {completedPatients?.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">
+              No patients completed today
+            </p>
+          ) : (
+            completedPatients?.map((entry: QueueEntry) => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">
+                      {entry.patient?.fullName || 'Unknown Patient'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Queue #{entry.queueNumber}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleNewVisit(entry)}
+                >
+                  View Details
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
 
     {/* Patient History Modal */}
     {selectedPatientId && (
