@@ -26,11 +26,7 @@ export function usePatient() {
         const cleanMobile = identifier.mobile.replace(/[^\d+]/g, '');
         console.log('Cleaned mobile number:', cleanMobile);
 
-        const res = await apiRequest(
-          "GET",
-          `/api/patient/profile?mobile=${encodeURIComponent(cleanMobile)}`,
-        );
-
+        const res = await fetch(`/api/patient/profile?mobile=${encodeURIComponent(cleanMobile)}`);
         console.log('API response status:', res.status);
 
         if (res.status === 404) {
@@ -49,7 +45,6 @@ export function usePatient() {
         return data;
       } catch (error) {
         console.error('Patient verification error:', error);
-        // Don't transform 404 to null here, let it be handled above
         throw error;
       }
     }
