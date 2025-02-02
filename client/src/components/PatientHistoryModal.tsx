@@ -10,7 +10,10 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   Activity,
@@ -18,135 +21,156 @@ import {
   CalendarDays,
   ClipboardList,
   Pill,
-  User2
+  User2,
+  Search,
+  Plus,
+  XCircle
 } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
-type PatientHistory = {
-  id: number;
-  fullName: string;
-  visits: Array<{
-    id: number;
-    visitedAt: string;
-    symptoms: string;
-    diagnosis: string;
-    treatment: string;
-    doctorId: number;
-  }>;
-  diagnoses: Array<{
-    id: number;
-    diagnosedAt: string;
-    condition: string;
-    status: string;
-    notes: string;
-    doctorId: number;
-  }>;
-  prescriptions: Array<{
-    id: number;
-    createdAt: string;
-    medications: Array<{
-      name: string;
-      dosage: string;
-      frequency: string;
-    }>;
-    instructions: string;
-    isActive: boolean;
-    doctorId: number;
-  }>;
-  appointments: Array<{
-    id: number;
-    scheduledFor: string;
-    status: string;
-    reason: string;
-    doctorId: number;
-  }>;
-};
-
+// Enhanced type definitions
 interface PatientHistoryModalProps {
   patientId: number | null;
   onClose: () => void;
+  open: boolean;
 }
 
-export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalProps) {
-  const { data: history, isLoading, error } = useQuery<PatientHistory>({
+// Add types for new functionality
+type CommonDisease = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  category: string;
+};
+
+type MedicationSuggestion = {
+  brandName: string;
+  genericName: string;
+  isCloudCarePartner: boolean;
+  dosageRecommendation: string;
+  frequencyRecommendation: string;
+};
+
+export function PatientHistoryModal({ patientId, onClose, open }: PatientHistoryModalProps) {
+  const { toast } = useToast();
+  const [selectedDisease, setSelectedDisease] = useState<string>("");
+  const [customDisease, setCustomDisease] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [comments, setComments] = useState<string>("");
+
+  // Fetch patient history
+  const { data: history, isLoading, error } = useQuery({
     queryKey: ["/api/doctor/patient-history", patientId],
     queryFn: async () => {
       if (!patientId) throw new Error("No patient ID provided");
-      console.log("Fetching patient history for ID:", patientId);
-      try {
-        const response = await fetch(`/api/doctor/patient-history/${patientId}`, {
-          credentials: "include",
-          headers: {
-            "Accept": "application/json",
-            "Cache-Control": "no-cache"
-          }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Failed to fetch patient history:", errorText);
-          throw new Error(`Failed to fetch patient history: ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log("Received patient history data:", data);
-        return data as PatientHistory;
-      } catch (err) {
-        console.error("Error in patient history fetch:", err);
-        throw err;
-      }
+      const response = await fetch(`/api/doctor/patient-history/${patientId}`, {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch patient history");
+      return response.json();
     },
     enabled: !!patientId,
-    retry: 1,
-    gcTime: 0
+  });
+
+  // Fetch common diseases
+  const { data: commonDiseases } = useQuery({
+    queryKey: ["/api/common-diseases", searchTerm],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (searchTerm) params.append("search", searchTerm);
+      const response = await fetch(`/api/common-diseases?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch common diseases");
+      return response.json();
+    },
+  });
+
+  // Fetch medication suggestions based on selected disease
+  const { data: medicationSuggestions } = useQuery({
+    queryKey: ["/api/medication-suggestions", selectedDisease],
+    queryFn: async () => {
+      if (!selectedDisease) return [];
+      const response = await fetch(`/api/medication-suggestions/${selectedDisease}`);
+      if (!response.ok) throw new Error("Failed to fetch medication suggestions");
+      return response.json();
+    },
+    enabled: !!selectedDisease,
+  });
+
+  // Mutations for updating diagnoses and prescriptions
+  const updateDiagnosis = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const response = await fetch(`/api/diagnoses/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error("Failed to update diagnosis");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Diagnosis updated successfully",
+      });
+    },
+  });
+
+  const addNewVisit = useMutation({
+    mutationFn: async (visitData: any) => {
+      const response = await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(visitData),
+      });
+      if (!response.ok) throw new Error("Failed to add new visit");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Visit record added successfully",
+      });
+      onClose();
+    },
   });
 
   if (!patientId) return null;
 
   return (
-    <Dialog open={!!patientId} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl h-[80vh]">
+    <Dialog open={open} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-6xl h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">
             Patient History: {history?.fullName}
           </DialogTitle>
         </DialogHeader>
 
-        {error ? (
-          <div className="flex items-center justify-center h-full text-destructive">
-            {error instanceof Error ? error.message : 'An error occurred'}
-          </div>
-        ) : (
-          <Tabs defaultValue="overview" className="w-full h-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <User2 className="h-4 w-4" />
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="diagnoses" className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Diagnoses
-              </TabsTrigger>
-              <TabsTrigger value="prescriptions" className="flex items-center gap-2">
-                <Pill className="h-4 w-4" />
-                Prescriptions
-              </TabsTrigger>
-              <TabsTrigger value="visits" className="flex items-center gap-2">
-                <Activity className="h-4 w-4" />
-                Visits & Notes
-              </TabsTrigger>
-            </TabsList>
+        <div className="grid grid-cols-2 gap-4 h-full">
+          {/* Left Side - Patient History */}
+          <div className="border-r pr-4">
+            <Tabs defaultValue="overview">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview" className="flex items-center gap-2">
+                  <User2 className="h-4 w-4" />
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="diagnoses" className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Diagnoses
+                </TabsTrigger>
+                <TabsTrigger value="prescriptions" className="flex items-center gap-2">
+                  <Pill className="h-4 w-4" />
+                  Prescriptions
+                </TabsTrigger>
+                <TabsTrigger value="visits" className="flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Visits & Notes
+                </TabsTrigger>
+              </TabsList>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
-            ) : !history ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">Failed to load patient history</p>
-              </div>
-            ) : (
-              <ScrollArea className="h-[calc(80vh-10rem)] mt-4">
-                <TabsContent value="overview" className="space-y-4">
+              <ScrollArea className="h-[calc(90vh-12rem)] mt-4">
+              <TabsContent value="overview" className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -154,9 +178,9 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                         Active Conditions
                       </h3>
                       <div className="space-y-2">
-                        {history.diagnoses
-                          .filter(d => d.status === "Active")
-                          .map(diagnosis => (
+                        {history?.diagnoses
+                          ?.filter(d => d.status === "Active")
+                          ?.map(diagnosis => (
                             <div key={diagnosis.id} className="p-3 border rounded-lg">
                               <div className="font-medium">{diagnosis.condition}</div>
                               <div className="text-sm text-muted-foreground">
@@ -173,9 +197,9 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                         Current Medications
                       </h3>
                       <div className="space-y-2">
-                        {history.prescriptions
-                          .filter(p => p.isActive)
-                          .map(prescription => (
+                        {history?.prescriptions
+                          ?.filter(p => p.isActive)
+                          ?.map(prescription => (
                             <div key={prescription.id} className="p-3 border rounded-lg">
                               {prescription.medications.map((med, idx) => (
                                 <div key={idx} className="mb-2">
@@ -206,21 +230,21 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                       </TableHeader>
                       <TableBody>
                         {[
-                          ...history.visits.map(v => ({
+                          ...(history?.visits?.map(v => ({
                             date: v.visitedAt,
                             type: "Visit",
                             details: v.diagnosis,
-                          })),
-                          ...history.diagnoses.map(d => ({
+                          })) || []),
+                          ...(history?.diagnoses?.map(d => ({
                             date: d.diagnosedAt,
                             type: "Diagnosis",
                             details: d.condition,
-                          })),
-                          ...history.prescriptions.map(p => ({
+                          })) || []),
+                          ...(history?.prescriptions?.map(p => ({
                             date: p.createdAt,
                             type: "Prescription",
                             details: p.medications.map(m => m.name).join(", "),
-                          }))
+                          })) || [])
                         ]
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                           .slice(0, 10)
@@ -254,7 +278,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {history.diagnoses.map(diagnosis => (
+                      {history?.diagnoses?.map(diagnosis => (
                         <TableRow key={diagnosis.id}>
                           <TableCell>{format(new Date(diagnosis.diagnosedAt), 'PP')}</TableCell>
                           <TableCell className="font-medium">{diagnosis.condition}</TableCell>
@@ -281,7 +305,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {history.prescriptions.map(prescription => (
+                      {history?.prescriptions?.map(prescription => (
                         <TableRow key={prescription.id}>
                           <TableCell>{format(new Date(prescription.createdAt), 'PP')}</TableCell>
                           <TableCell>
@@ -320,7 +344,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {history.visits.map(visit => (
+                      {history?.visits?.map(visit => (
                         <TableRow key={visit.id}>
                           <TableCell>{format(new Date(visit.visitedAt), 'PP')}</TableCell>
                           <TableCell>{visit.symptoms}</TableCell>
@@ -332,9 +356,119 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                   </Table>
                 </TabsContent>
               </ScrollArea>
+            </Tabs>
+          </div>
+
+          {/* Right Side - New Visit Form */}
+          <div className="pl-4">
+            <h3 className="text-lg font-semibold mb-4">New Visit Record</h3>
+
+            {/* Disease Selection */}
+            <div className="space-y-4 mb-6">
+              <h4 className="font-medium">Common Health Issues</h4>
+              <div className="flex flex-wrap gap-2">
+                {commonDiseases?.slice(0, 6).map((disease: CommonDisease) => (
+                  <Button
+                    key={disease.id}
+                    variant={selectedDisease === disease.id ? "default" : "outline"}
+                    onClick={() => setSelectedDisease(disease.id)}
+                    size="sm"
+                  >
+                    {disease.name}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search other conditions..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {searchTerm && (
+                <div className="border rounded-md p-2">
+                  {commonDiseases?.map((disease: CommonDisease) => (
+                    <div
+                      key={disease.id}
+                      className="p-2 hover:bg-accent cursor-pointer"
+                      onClick={() => {
+                        setSelectedDisease(disease.id);
+                        setSearchTerm("");
+                      }}
+                    >
+                      {disease.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Medication Suggestions */}
+            {selectedDisease && (
+              <div className="space-y-4 mb-6">
+                <h4 className="font-medium">Recommended Medications</h4>
+                <div className="space-y-2">
+                  {medicationSuggestions?.map((med: MedicationSuggestion) => (
+                    <div
+                      key={med.brandName}
+                      className="border rounded-lg p-3 hover:bg-accent/50"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{med.brandName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {med.genericName}
+                          </p>
+                        </div>
+                        {med.isCloudCarePartner && (
+                          <Badge variant="secondary">CloudCare Partner</Badge>
+                        )}
+                      </div>
+                      <div className="mt-2 text-sm">
+                        <p>Dosage: {med.dosageRecommendation}</p>
+                        <p>Frequency: {med.frequencyRecommendation}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-          </Tabs>
-        )}
+
+            {/* Comments Section */}
+            <div className="space-y-2 mb-6">
+              <h4 className="font-medium">Visit Notes</h4>
+              <Textarea
+                placeholder="Add any additional notes or observations..."
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  addNewVisit.mutate({
+                    patientId,
+                    diagnosis: selectedDisease,
+                    comments,
+                    // Add other necessary data
+                  });
+                }}
+              >
+                Save Visit Record
+              </Button>
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

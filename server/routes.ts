@@ -8,12 +8,17 @@ import {
   appointments, prescriptions, diagnoses, visitRecords,
   doctors, patientDoctorAssignments, patientPreferences, pharmacies, clinics,
   medicineOrders, insertVisitRecordSchema, insertDiagnosisSchema, insertPrescriptionSchema,
-  doctorMetrics, doctorClinicAssignments, prescriptionAnalytics, medicationBrands, type SelectQueueEntry
+  doctorMetrics, doctorClinicAssignments, prescriptionAnalytics, medicationBrands, type SelectQueueEntry,
+  
 } from "@db/schema";
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
 import { checkAndSendNotifications } from './services/notifications';
 import { sendTestSMS } from './services/sms';
+import { 
+  medicationBrands, doctorMetrics, prescriptionAnalytics,
+  insertVisitRecordSchema, type SelectMedicationBrand
+} from "@db/schema";
 
 // Store pending transactions in memory (in production, use Redis or database)
 const pendingTransactions = new Map<string, { queueId: number, amount: number }>();
@@ -1245,5 +1250,184 @@ app.get("/api/doctor/top-brands", async (req, res) => {
     res.status(500).send("Failed to fetch top brands data");
   }
 });
+  
+  app.get("/api/common-diseases", async (req, res) => {
+    const { search } = req.query;
+    try {
+      // In production, this would be fetched from a medical API
+      // For now, we'll use a static list of common diseases
+      const commonDiseases = [
+        { id: "covid19", name: "COVID-19", isActive: true, category: "Respiratory" },
+        { id: "flu", name: "Influenza", isActive: true, category: "Respiratory" },
+        { id: "diabetes", name: "Type 2 Diabetes", isActive: true, category: "Metabolic" },
+        { id: "hypertension", name: "Hypertension", isActive: true, category: "Cardiovascular" },
+        { id: "asthma", name: "Asthma", isActive: true, category: "Respiratory" },
+        { id: "arthritis", name: "Arthritis", isActive: true, category: "Musculoskeletal" }
+      ];
+
+      if (search) {
+        const searchLower = (search as string).toLowerCase();
+        const filtered = commonDiseases.filter(disease => 
+          disease.name.toLowerCase().includes(searchLower) ||
+          disease.category.toLowerCase().includes(searchLower)
+        );
+        return res.json(filtered);
+      }
+
+      res.json(commonDiseases);
+    } catch (error) {
+      console.error('Error fetching common diseases:', error);
+      res.status(500).send("Failed to fetch common diseases");
+    }
+  });
+
+  app.get("/api/medication-suggestions/:diseaseId", async (req, res) => {
+    const { diseaseId } = req.params;
+    try {
+      // First get Cloud Care partner brands
+      const partnerBrands = await db
+        .select()
+        .from(medicationBrands)
+        .where(eq(medicationBrands.isCloudCarePartner, true));
+
+      // In production, this would integrate with a medical API
+      // For now, we'll use basic mapping of diseases to medications
+      const diseaseMedications: Record<string, Array<{
+        brandName: string,
+        genericName: string,
+        dosageRecommendation: string,
+        frequencyRecommendation: string
+      }>> = {
+        "covid19": [
+          {
+            brandName: "Paxlovid",
+            genericName: "nirmatrelvir/ritonavir",
+            dosageRecommendation: "300mg/100mg",
+            frequencyRecommendation: "Twice daily for 5 days"
+          }
+        ],
+        "flu": [
+          {
+            brandName: "Tamiflu",
+            genericName: "oseltamivir",
+            dosageRecommendation: "75mg",
+            frequencyRecommendation: "Twice daily for 5 days"
+          }
+        ],
+        "diabetes": [
+          {
+            brandName: "Metformin",
+            genericName: "metformin hydrochloride",
+            dosageRecommendation: "500mg",
+            frequencyRecommendation: "Twice daily with meals"
+          }
+        ],
+        "hypertension": [
+          {
+            brandName: "Amlodipine",
+            genericName: "amlodipine besylate",
+            dosageRecommendation: "5mg",
+            frequencyRecommendation: "Once daily"
+          }
+        ]
+      };
+
+      const medications = diseaseMedications[diseaseId] || [];
+
+      // Enhance medications with Cloud Care partner status
+      const enhancedMedications = medications.map(med => ({
+        ...med,
+        isCloudCarePartner: partnerBrands.some(
+          brand => brand.brandName.toLowerCase() === med.brandName.toLowerCase()
+        )
+      }));
+
+      res.json(enhancedMedications);
+    } catch (error) {
+      console.error('Error fetching medication suggestions:', error);
+      res.status(500).send("Failed to fetch medication suggestions");
+    }
+  });
+
+  // Update the visit records endpoint to handle the enhanced records
+  app.post("/api/visits", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const result = insertVisitRecordSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).send(fromZodError(result.error).toString());
+    }
+
+    try {
+      // Begin transaction
+      await db.transaction(async (tx) => {
+        // 1. Create visit record
+        const [visit] = await tx
+          .insert(visitRecords)
+          .values(result.data)
+          .returning();
+
+        // 2. If there's a new diagnosis, insert it
+        if (req.body.newDiagnosis) {
+          await tx
+            .insert(diagnoses)
+            .values({
+              patientId: result.data.patientId,
+              doctorId: result.data.doctorId,
+              condition: req.body.newDiagnosis,
+              notes: req.body.diagnosisNotes,
+              status: "active"
+            });
+        }
+
+        // 3. If updating existing diagnoses statuses
+        if (req.body.diagnosisUpdates) {
+          for (const update of req.body.diagnosisUpdates) {
+            await tx
+              .update(diagnoses)
+              .set({ status: update.status })
+              .where(eq(diagnoses.id, update.id));
+          }
+        }
+
+        // 4. If there are new prescriptions
+        if (req.body.prescriptions) {
+          for (const prescription of req.body.prescriptions) {
+            const [prescRecord] = await tx
+              .insert(prescriptions)
+              .values({
+                patientId: result.data.patientId,
+                doctorId: result.data.doctorId,
+                medications: prescription.medications,
+                instructions: prescription.instructions,
+                startDate: prescription.startDate,
+                endDate: prescription.endDate,
+                isActive: true
+              })
+              .returning();
+
+            // Track prescription analytics
+            if (prescription.brandId) {
+              await tx
+                .insert(prescriptionAnalytics)
+                .values({
+                  prescriptionId: prescRecord.id,
+                  medicationBrandId: prescription.brandId,
+                  quantity: prescription.quantity || 1,
+                  rewardPointsEarned: 0 // Will be calculated by a trigger
+                });
+            }
+          }
+        }
+
+        // Return the complete visit record
+        res.status(201).json(visit);
+      });
+    } catch (error) {
+      console.error('Error creating visit record:', error);
+      res.status(500).send("Failed to create visit record");
+    }
+  });
+
   return httpServer;
 }
