@@ -18,12 +18,11 @@ type QueueEntryWithWaitTime = {
   id: number;
   queueNumber: number;
   status: string;
-  patient: {
-    id: number;
-    fullName: string;
-  };
+  patientId: number;
+  fullName: string;
   estimatedWaitTime: number;
   clinicId: number;
+  createdAt: string;
 };
 
 export default function Queue() {
@@ -58,7 +57,7 @@ export default function Queue() {
       }
       const data = await response.json();
       console.log('Clinic queue data:', data);
-      return data;
+      return data as QueueEntryWithWaitTime[];
     },
     enabled: !!selectedClinicId,
   });
@@ -84,10 +83,10 @@ export default function Queue() {
     );
   }
 
-  const currentPatient = clinicQueue?.find((q: QueueEntryWithWaitTime) => q.status === "in-progress");
+  const currentPatient = clinicQueue?.find((q) => q.status === "in-progress");
   const waitingPatients = clinicQueue
-    ?.filter((q: QueueEntryWithWaitTime) => q.status === "waiting")
-    .sort((a: QueueEntryWithWaitTime, b: QueueEntryWithWaitTime) => a.queueNumber - b.queueNumber) || [];
+    ?.filter((q) => q.status === "waiting")
+    .sort((a, b) => a.queueNumber - b.queueNumber) || [];
 
   console.log("Current patient:", currentPatient);
   console.log("Waiting patients:", waitingPatients);
@@ -113,7 +112,7 @@ export default function Queue() {
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {clinics.map((clinic) => (
+              {clinics.map((clinic: any) => (
                 <SelectItem key={clinic.id} value={clinic.id.toString()}>
                   {clinic.name}
                 </SelectItem>
@@ -128,22 +127,22 @@ export default function Queue() {
           <Card className="p-8">
             <h2 className="text-2xl font-semibold mb-4">Waiting Patients</h2>
             <div className="space-y-4">
-              {waitingPatients.map((patient: QueueEntryWithWaitTime) => (
+              {waitingPatients.map((entry) => (
                 <div
-                  key={patient.id}
+                  key={entry.id}
                   className="flex items-center justify-between p-4 bg-muted rounded-lg"
                 >
                   <div className="flex items-center space-x-4">
                     <QueueNumber
-                      number={patient.queueNumber}
+                      number={entry.queueNumber}
                       className="text-4xl"
                     />
                     <div>
-                      <p className="font-medium">{patient.patient.fullName}</p>
+                      <p className="font-medium">{entry.fullName}</p>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Clock className="h-4 w-4 mr-1" />
                         <span>
-                          Est. wait: {patient.estimatedWaitTime} mins
+                          Est. wait: {entry.estimatedWaitTime} mins
                         </span>
                       </div>
                     </div>
@@ -172,7 +171,7 @@ export default function Queue() {
                     <div className="mt-4 flex items-center justify-center space-x-2">
                       <UserRound className="h-6 w-6 text-muted-foreground" />
                       <p className="text-lg">
-                        {currentPatient.patient.fullName}
+                        {currentPatient.fullName}
                       </p>
                     </div>
                   </div>
