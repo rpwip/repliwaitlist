@@ -24,7 +24,13 @@ import {
   User2,
   Search,
   Plus,
-  XCircle
+  XCircle,
+  ThermometerIcon,
+  HeartPulseIcon,
+  RulerIcon,
+  ScaleIcon,
+  HeartIcon,
+  PercentIcon
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -39,13 +45,24 @@ interface PatientHistoryModalProps {
   onClose: () => void;
   open: boolean;
   showNewVisitForm?: boolean;
+  doctorId?: number;
+  clinicId?: number;
 }
 
-type CommonDisease = {
+// Types for API responses
+type SymptomSuggestion = {
   id: string;
   name: string;
-  isActive: boolean;
   category: string;
+  confidence: number;
+};
+
+type DiagnosisSuggestion = {
+  id: string;
+  name: string;
+  confidence: number;
+  description: string;
+  recommendedTests: string[];
 };
 
 type MedicationSuggestion = {
@@ -54,21 +71,17 @@ type MedicationSuggestion = {
   isCloudCarePartner: boolean;
   dosageRecommendation: string;
   frequencyRecommendation: string;
+  commonSideEffects: string[];
+  contraindications: string[];
 };
 
-type Vitals = {
-  bloodPressure: string;
-  heartRate: string;
-  temperature: string;
-  weight: string;
-  height: string;
-  oxygenSaturation: string;
-};
-
-type LabOrder = {
+type LabTestSuggestion = {
+  id: string;
   name: string;
   reason: string;
   urgency: "routine" | "urgent" | "stat";
+  description: string;
+  preparationInstructions: string;
 };
 
 const visitRecordSchema = z.object({
@@ -96,12 +109,13 @@ const visitRecordSchema = z.object({
   comments: z.string(),
 });
 
-
 export function PatientHistoryModal({ 
   patientId, 
   onClose, 
   open,
-  showNewVisitForm = false 
+  showNewVisitForm = false,
+  doctorId,
+  clinicId
 }: PatientHistoryModalProps) {
   const { toast } = useToast();
   const [selectedDisease, setSelectedDisease] = useState<string>("");
@@ -127,7 +141,7 @@ export function PatientHistoryModal({
     },
   });
 
-  const { data: history, isLoading, error } = useQuery({
+  const { data: history, isLoading } = useQuery({
     queryKey: ["/api/doctor/patient-history", patientId],
     queryFn: async () => {
       if (!patientId) throw new Error("No patient ID provided");
@@ -140,15 +154,26 @@ export function PatientHistoryModal({
     enabled: !!patientId,
   });
 
-  const { data: commonDiseases } = useQuery({
-    queryKey: ["/api/common-diseases", searchTerm],
+  const { data: symptomSuggestions } = useQuery({
+    queryKey: ["/api/symptoms-suggestions", symptoms],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      const response = await fetch(`/api/common-diseases?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch common diseases");
-      return response.json();
+      if (!symptoms) return [];
+      const response = await fetch(`/api/symptoms-suggestions?symptoms=${encodeURIComponent(symptoms)}`);
+      if (!response.ok) throw new Error("Failed to fetch symptom suggestions");
+      return response.json() as Promise<SymptomSuggestion[]>;
     },
+    enabled: !!symptoms,
+  });
+
+  const { data: diagnosisSuggestions } = useQuery({
+    queryKey: ["/api/diagnosis-suggestions", symptoms],
+    queryFn: async () => {
+      if (!symptoms) return [];
+      const response = await fetch(`/api/diagnosis-suggestions?symptoms=${encodeURIComponent(symptoms)}`);
+      if (!response.ok) throw new Error("Failed to fetch diagnosis suggestions");
+      return response.json() as Promise<DiagnosisSuggestion[]>;
+    },
+    enabled: !!symptoms,
   });
 
   const { data: medicationSuggestions } = useQuery({
@@ -157,40 +182,21 @@ export function PatientHistoryModal({
       if (!selectedDisease) return [];
       const response = await fetch(`/api/medication-suggestions/${selectedDisease}`);
       if (!response.ok) throw new Error("Failed to fetch medication suggestions");
-      return response.json();
+      return response.json() as Promise<MedicationSuggestion[]>;
     },
     enabled: !!selectedDisease,
   });
 
-    const { data: diagnosisSuggestions } = useQuery({
-    queryKey: ["/api/diagnosis-suggestions", symptoms],
+  const { data: labSuggestions } = useQuery({
+    queryKey: ["/api/lab-suggestions", selectedDisease],
     queryFn: async () => {
-      if (!symptoms) return [];
-      const response = await fetch(`/api/diagnosis-suggestions?symptoms=${encodeURIComponent(symptoms)}`);
-      if (!response.ok) throw new Error("Failed to fetch diagnosis suggestions");
-      return response.json();
+      if (!selectedDisease) return [];
+      const response = await fetch(`/api/lab-suggestions/${selectedDisease}`);
+      if (!response.ok) throw new Error("Failed to fetch lab suggestions");
+      return response.json() as Promise<LabTestSuggestion[]>;
     },
-    enabled: !!symptoms,
+    enabled: !!selectedDisease,
   });
-  
-  const updateDiagnosis = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      const response = await fetch(`/api/diagnoses/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (!response.ok) throw new Error("Failed to update diagnosis");
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Diagnosis updated successfully",
-      });
-    },
-  });
-
 
   const saveVisitRecord = useMutation({
     mutationFn: async (data: z.infer<typeof visitRecordSchema>) => {
@@ -199,6 +205,8 @@ export function PatientHistoryModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId,
+          doctorId,
+          clinicId,
           ...data,
           visitedAt: new Date().toISOString(),
         }),
@@ -214,13 +222,114 @@ export function PatientHistoryModal({
       onClose();
     },
   });
-  
+
   if (!patientId) return null;
 
-    const handleSymptomsChange = (value: string) => {
+  const handleSymptomsChange = (value: string) => {
     setSymptoms(value);
     form.setValue("symptoms", value);
   };
+
+  const VitalsSection = () => (
+    <div className="space-y-4">
+      <h4 className="font-medium flex items-center gap-2">
+        <HeartPulseIcon className="h-5 w-5" />
+        Vitals
+      </h4>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField
+          control={form.control}
+          name="vitals.bloodPressure"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <HeartIcon className="h-4 w-4" />
+                Blood Pressure
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="120/80" />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="vitals.heartRate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <HeartPulseIcon className="h-4 w-4" />
+                Heart Rate
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="72 bpm" />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="vitals.temperature"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <ThermometerIcon className="h-4 w-4" />
+                Temperature
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="98.6 F" />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="vitals.weight"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <ScaleIcon className="h-4 w-4" />
+                Weight
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="150 lbs" />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="vitals.height"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <RulerIcon className="h-4 w-4" />
+                Height
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="5'10" />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="vitals.oxygenSaturation"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <PercentIcon className="h-4 w-4" />
+                Oxygen Saturation
+              </FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="98%" />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
@@ -254,7 +363,7 @@ export function PatientHistoryModal({
               </TabsList>
 
               <ScrollArea className="h-[calc(90vh-12rem)] mt-4">
-              <TabsContent value="overview" className="space-y-4">
+                <TabsContent value="overview" className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -449,83 +558,7 @@ export function PatientHistoryModal({
               <Form {...form}>
                 <form onSubmit={form.handleSubmit((data) => saveVisitRecord.mutate(data))} className="space-y-6">
                   {/* Vitals Section */}
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Vitals</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="vitals.bloodPressure"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Blood Pressure</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="120/80" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                       <FormField
-                        control={form.control}
-                        name="vitals.heartRate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Heart Rate</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="72 bpm" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                        <FormField
-                        control={form.control}
-                        name="vitals.temperature"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Temperature</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="98.6 F" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                       <FormField
-                        control={form.control}
-                        name="vitals.weight"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Weight</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="150 lbs" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                       <FormField
-                        control={form.control}
-                        name="vitals.height"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Height</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="5'10" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                       <FormField
-                        control={form.control}
-                        name="vitals.oxygenSaturation"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Oxygen Saturation</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="98%" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
+                  <VitalsSection />
 
                   <Separator />
 
@@ -538,11 +571,35 @@ export function PatientHistoryModal({
                       onChange={(e) => handleSymptomsChange(e.target.value)}
                       className="min-h-[100px]"
                     />
+                    {symptomSuggestions?.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium">Common Symptoms:</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {symptomSuggestions.map((suggestion) => (
+                            <Button
+                              key={suggestion.id}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const currentSymptoms = symptoms ? symptoms + ", " : "";
+                                handleSymptomsChange(currentSymptoms + suggestion.name);
+                              }}
+                            >
+                              {suggestion.name}
+                              <Badge variant="secondary" className="ml-2">
+                                {suggestion.confidence}%
+                              </Badge>
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {diagnosisSuggestions?.length > 0 && (
                       <div className="space-y-2">
                         <h5 className="text-sm font-medium">Suggested Diagnoses:</h5>
                         <div className="flex flex-wrap gap-2">
-                          {diagnosisSuggestions.map((suggestion: any) => (
+                          {diagnosisSuggestions.map((suggestion) => (
                             <Button
                               key={suggestion.id}
                               variant={selectedDisease === suggestion.id ? "default" : "outline"}
@@ -553,6 +610,9 @@ export function PatientHistoryModal({
                               size="sm"
                             >
                               {suggestion.name}
+                              <Badge variant="secondary" className="ml-2">
+                                {suggestion.confidence}%
+                              </Badge>
                             </Button>
                           ))}
                         </div>
@@ -567,7 +627,7 @@ export function PatientHistoryModal({
                     <div className="space-y-4">
                       <h4 className="font-medium">Recommended Medications</h4>
                       <div className="space-y-2">
-                        {medicationSuggestions?.map((med: MedicationSuggestion) => (
+                        {medicationSuggestions?.map((med) => (
                           <div
                             key={med.brandName}
                             className="border rounded-lg p-3 hover:bg-accent/50 cursor-pointer"
@@ -598,6 +658,14 @@ export function PatientHistoryModal({
                             <div className="mt-2 text-sm">
                               <p>Dosage: {med.dosageRecommendation}</p>
                               <p>Frequency: {med.frequencyRecommendation}</p>
+                              <div className="mt-1">
+                                <p className="text-xs text-muted-foreground">
+                                  Side effects: {med.commonSideEffects.join(", ")}
+                                </p>
+                                <p className="text-xs text-destructive">
+                                  Contraindications: {med.contraindications.join(", ")}
+                                </p>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -654,6 +722,45 @@ export function PatientHistoryModal({
                         Add Lab Order
                       </Button>
                     </div>
+
+                    {/* Lab Suggestions */}
+                    {selectedDisease && labSuggestions?.length > 0 && (
+                      <div className="space-y-2">
+                        <h5 className="text-sm font-medium">Recommended Tests:</h5>
+                        <div className="grid grid-cols-2 gap-2">
+                          {labSuggestions.map((test) => (
+                            <Button
+                              key={test.id}
+                              variant="outline"
+                              className="h-auto py-2 justify-start"
+                              onClick={() => {
+                                const current = form.getValues("labOrders");
+                                form.setValue("labOrders", [
+                                  ...current,
+                                  {
+                                    name: test.name,
+                                    reason: test.reason,
+                                    urgency: test.urgency,
+                                  },
+                                ]);
+                              }}
+                            >
+                              <div className="text-left">
+                                <p className="font-medium">{test.name}</p>
+                                <p className="text-xs text-muted-foreground">{test.reason}</p>
+                                <Badge variant={
+                                  test.urgency === "stat" ? "destructive" :
+                                  test.urgency === "urgent" ? "default" : "secondary"
+                                }>
+                                  {test.urgency}
+                                </Badge>
+                              </div>
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {form.watch("labOrders").map((_, index) => (
                       <div key={index} className="space-y-2 p-4 border rounded">
                         <FormField
