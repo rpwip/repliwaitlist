@@ -248,7 +248,7 @@ export default function DoctorPortal() {
     enabled: view === "patients" && !!user?.id,
   });
 
-  // Update the queue data fetching to properly handle patient IDs
+  // Update the queue data fetching to properly handle patient IDs and add logging
   const { data: queueData, refetch: refetchQueue } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
@@ -256,26 +256,33 @@ export default function DoctorPortal() {
       const response = await fetch(`/api/queue/${selectedClinicId}`);
       if (!response.ok) throw new Error("Failed to fetch queue");
       const data = await response.json();
+      console.log("Raw queue data from API:", data);
 
       // Transform the data to match the QueueEntry type
-      return data.map((entry: any) => ({
-        id: entry.id,
-        queueNumber: entry.queueNumber,
-        status: entry.status,
-        patient: {
-          id: entry.patientId,  // Ensure we get the patient ID from the correct field
-          fullName: entry.patient?.fullName || entry.fullName || 'Unknown Patient'
-        },
-        estimatedWaitTime: entry.estimatedWaitTime || 0,
-        clinicId: selectedClinicId,
-        vitals: entry.vitals || {
-          bp: 'N/A',
-          temperature: 'N/A',
-          pulse: 'N/A',
-          spo2: 'N/A'
-        },
-        visitReason: entry.visitReason || ''
-      }));
+      const transformedData = data.map((entry: any) => {
+        const transformed = {
+          id: entry.id,
+          queueNumber: entry.queueNumber,
+          status: entry.status,
+          patient: {
+            id: entry.patientId || entry.patient?.id,  // Try both possible locations
+            fullName: entry.patient?.fullName || entry.fullName || 'Unknown Patient'
+          },
+          estimatedWaitTime: entry.estimatedWaitTime || 0,
+          clinicId: selectedClinicId,
+          vitals: entry.vitals || {
+            bp: 'N/A',
+            temperature: 'N/A',
+            pulse: 'N/A',
+            spo2: 'N/A'
+          },
+          visitReason: entry.visitReason || ''
+        };
+        console.log("Transformed queue entry:", transformed);
+        return transformed;
+      });
+
+      return transformedData;
     },
     enabled: !!selectedClinicId,
   });
@@ -342,29 +349,37 @@ export default function DoctorPortal() {
     setShowNewVisitModal(true);
   };
   
-  // Update the handleStartConsultation function to properly handle patient IDs
+  // Update the handleStartConsultation function with better logging
   const handleStartConsultation = (entry: QueueEntry) => {
     try {
-      console.log("Starting consultation for:", entry);
+      console.log("Starting consultation for queue entry:", {
+        queueId: entry.id,
+        queueNumber: entry.queueNumber,
+        patientInfo: entry.patient,
+        status: entry.status,
+        clinicId: entry.clinicId
+      });
 
       if (!entry.patient?.id) {
-        console.error("Patient ID missing from entry:", entry);
+        console.error("Patient ID missing from queue entry:", entry);
         toast({
           title: "Error",
-          description: "Patient ID is missing",
+          description: "Patient ID is missing from the queue entry",
           variant: "destructive",
         });
         return;
       }
 
       // Update state for modal
+      console.log("Setting selected patient ID:", entry.patient.id);
       setSelectedPatientId(entry.patient.id);
       setCurrentQueueEntry(entry);
       setShowNewVisitModal(true);
 
       // Make the API call to start consultation
       startConsultation.mutate(entry.id, {
-        onSuccess: () => {
+        onSuccess: (data) => {
+          console.log("Successfully started consultation:", data);
           toast({
             title: "Success",
             description: "Started consultation with patient",
@@ -380,7 +395,7 @@ export default function DoctorPortal() {
         }
       });
     } catch (error) {
-      console.error('Error starting consultation:', error);
+      console.error('Error in handleStartConsultation:', error);
       toast({
         title: "Error",
         description: "Failed to start consultation. Please try again.",
@@ -870,7 +885,7 @@ const renderQueue = () => (
                   <div>
                     <p className="text-sm text-muted-foreground">SpO2</p>
                     <p>{currentQueueEntry.vitals?.spo2 || 'N/A'}%</p>
-                  </div>
+                                    </div>
                 </div>
               </div>
 
