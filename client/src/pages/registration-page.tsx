@@ -11,24 +11,42 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { insertPatientSchema } from "@db/schema";
+import PaymentQR from "@/components/payment-qr";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
 import { useLocation } from "wouter";
-import PaymentQR from "@/components/payment-qr";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function RegistrationPage() {
-  const { registerPatient } = useQueue();
+  const { registerPatient, clinics } = useQueue();
   const { toast } = useToast();
   const { language } = useLanguage();
   const [, setLocation] = useLocation();
   const [registrationData, setRegistrationData] = useState<any>(null);
+  const [selectedClinic, setSelectedClinic] = useState<string>("");
   const searchParams = new URLSearchParams(window.location.search);
   const mobile = searchParams.get('mobile') || '';
+
+  // Set default clinic when clinics data is loaded
+  useEffect(() => {
+    if (clinics && clinics.length > 0) {
+      const yazhClinic = clinics.find(clinic => clinic.name === "Yazh Health Care");
+      if (yazhClinic) {
+        setSelectedClinic(yazhClinic.id.toString());
+      }
+    }
+  }, [clinics]);
 
   const form = useForm({
     resolver: zodResolver(insertPatientSchema),
@@ -40,8 +58,20 @@ export default function RegistrationPage() {
   });
 
   const onSubmit = async (data: any) => {
+    if (!selectedClinic) {
+      toast({
+        title: "Clinic Required",
+        description: "Please select a clinic for consultation",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const result = await registerPatient(data);
+      const result = await registerPatient({
+        ...data,
+        clinicId: parseInt(selectedClinic)
+      });
       setRegistrationData(result);
       toast({
         title: "Registration successful",
@@ -59,20 +89,12 @@ export default function RegistrationPage() {
 
   if (registrationData?.queueEntry) {
     return (
-      <Card className="p-6">
-        <h3 className="text-xl font-semibold mb-4">{getTranslation('paymentTitle', language)}</h3>
-        <div className="mb-4">
-          <p className="text-lg font-medium">
-            Queue Number: <span className="text-primary">
-              {String(registrationData.queueEntry.queueNumber).padStart(3, '0')}
-            </span>
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {getTranslation('paymentDescription', language)}
-          </p>
-        </div>
-        <PaymentQR queueId={registrationData.queueEntry.id} />
-      </Card>
+      <PaymentQR 
+        queueId={registrationData.queueEntry.id} 
+        patientName={registrationData.patient.fullName}
+        clinicDetails={clinics.find(c => c.id === parseInt(selectedClinic))}
+        queueNumber={registrationData.queueEntry.queueNumber}
+      />
     );
   }
 
@@ -129,6 +151,30 @@ export default function RegistrationPage() {
               </FormItem>
             )}
           />
+
+          <FormItem>
+            <FormLabel>Select Clinic</FormLabel>
+            <Select 
+              value={selectedClinic} 
+              onValueChange={setSelectedClinic}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a clinic" />
+              </SelectTrigger>
+              <SelectContent>
+                {clinics.map((clinic) => (
+                  <SelectItem key={clinic.id} value={clinic.id.toString()}>
+                    {clinic.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!selectedClinic && form.formState.isSubmitted && (
+              <p className="text-sm text-destructive mt-2">
+                Please select a clinic
+              </p>
+            )}
+          </FormItem>
 
           <div className="flex gap-4">
             <Button

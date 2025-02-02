@@ -12,24 +12,52 @@ import {
 import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
+import { format } from "date-fns";
 
-export default function PaymentQR({ queueId }: { queueId: number }) {
+interface PaymentQRProps {
+  queueId: number;
+  patientName: string;
+  clinicDetails: {
+    id: number;
+    name: string;
+    address: string;
+  };
+  queueNumber: number;
+}
+
+export default function PaymentQR({ 
+  queueId, 
+  patientName,
+  clinicDetails,
+  queueNumber 
+}: PaymentQRProps) {
   const { confirmPayment, verifyPayment } = useQueue();
   const { language } = useLanguage();
   const [qrUrl, setQrUrl] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [transactionRef, setTransactionRef] = useState("");
+  const consultationFee = 500; // In production, this would come from clinic settings
 
   useEffect(() => {
     // Generate a unique transaction reference
     const txnRef = `CC-${queueId}-${Date.now()}`;
     setTransactionRef(txnRef);
 
-    // Generate a UPI QR code URL with transaction reference
-    const dummyUpiUrl = `upi://pay?pa=cloudcares@upi&pn=Cloud%20Cares&am=500.00&cu=INR&tr=${txnRef}&tn=Consultation`;
+    // Create payment details for QR code
+    const paymentDetails = {
+      patientName,
+      clinicName: clinicDetails.name,
+      queueNumber: String(queueNumber).padStart(3, '0'),
+      date: format(new Date(), 'PP'),
+      amount: consultationFee,
+      reference: txnRef
+    };
+
+    // Generate a UPI QR code URL with transaction reference and details
+    const dummyUpiUrl = `upi://pay?pa=cloudcares@upi&pn=Cloud%20Cares&am=${consultationFee}.00&cu=INR&tr=${txnRef}&tn=Consultation at ${clinicDetails.name}`;
     setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(dummyUpiUrl)}`);
-  }, [queueId]);
+  }, [queueId, patientName, clinicDetails, queueNumber]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -68,12 +96,21 @@ export default function PaymentQR({ queueId }: { queueId: number }) {
       <Card>
         <CardHeader>
           <CardTitle>{getTranslation('paymentSuccessTitle', language)}</CardTitle>
-          <CardDescription>{getTranslation('paymentSuccessDescription', language)}</CardDescription>
+          <CardDescription>
+            {getTranslation('paymentSuccessDescription', language)}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {getTranslation('paymentSuccessInstructions', language)}
-          </p>
+          <div className="space-y-4">
+            <div className="border-t pt-4">
+              <p className="font-medium">Queue Number: {String(queueNumber).padStart(3, '0')}</p>
+              <p className="text-sm text-muted-foreground">Clinic: {clinicDetails.name}</p>
+              <p className="text-sm text-muted-foreground">Date: {format(new Date(), 'PP')}</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {getTranslation('paymentSuccessInstructions', language)}
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -83,7 +120,9 @@ export default function PaymentQR({ queueId }: { queueId: number }) {
     <Card>
       <CardHeader>
         <CardTitle>{getTranslation('completePayment', language)}</CardTitle>
-        <CardDescription>{getTranslation('scanQRDescription', language)}</CardDescription>
+        <CardDescription>
+          {getTranslation('scanQRDescription', language)}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col items-center space-y-4">
@@ -91,8 +130,14 @@ export default function PaymentQR({ queueId }: { queueId: number }) {
             <img src={qrUrl} alt="Payment QR Code" className="w-48 h-48" />
           </div>
           <div className="text-center space-y-2">
-            <p className="text-lg font-semibold">₹500.00</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-lg font-semibold">₹{consultationFee}.00</p>
+            <div className="text-sm space-y-1">
+              <p className="font-medium">Patient: {patientName}</p>
+              <p>Clinic: {clinicDetails.name}</p>
+              <p>Queue Number: {String(queueNumber).padStart(3, '0')}</p>
+              <p>Date: {format(new Date(), 'PP')}</p>
+            </div>
+            <p className="text-sm text-muted-foreground mt-4">
               {getTranslation('upiInstructions', language)}
             </p>
             <p className="text-xs text-muted-foreground">
