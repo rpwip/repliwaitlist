@@ -1,7 +1,7 @@
 import { MailService } from '@sendgrid/mail';
 import { WebClient } from '@slack/web-api';
 import { db } from "@db";
-import { notificationPreferences, queueEntries, users, patients } from "@db/schema";
+import { queueEntries, patients } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 // Initialize SendGrid
@@ -50,7 +50,7 @@ export async function sendSMS(phoneNumber: string, message: string): Promise<boo
 
 export async function sendQueueNotification(queueEntryId: number): Promise<void> {
   try {
-    const queueEntry = await db.query.queueEntries.findFirst({
+    const [queueEntry] = await db.query.queueEntries.findFirst({
       where: eq(queueEntries.id, queueEntryId),
       with: {
         patient: true,
@@ -59,20 +59,14 @@ export async function sendQueueNotification(queueEntryId: number): Promise<void>
 
     if (!queueEntry || !queueEntry.patient) return;
 
-    const userPrefs = await db.query.notificationPreferences.findFirst({
-      where: eq(notificationPreferences.userId, queueEntry.patient.userId!),
-    });
-
-    if (!userPrefs) return;
-
     const message = `Your queue number ${queueEntry.queueNumber} is ${queueEntry.status}. 
                     Estimated wait time: ${queueEntry.estimatedTime} minutes.`;
 
-    if (userPrefs.sms && queueEntry.patient.mobile) {
+    if (queueEntry.patient.mobile) {
       await sendSMS(queueEntry.patient.mobile, message);
     }
 
-    if (userPrefs.email && queueEntry.patient.email) {
+    if (queueEntry.patient.email) {
       await sendEmail({
         to: queueEntry.patient.email,
         subject: 'Queue Status Update - Cloud Cares',

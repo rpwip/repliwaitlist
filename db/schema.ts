@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, date, jsonb, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations, type InferSelectModel, type InferInsertModel } from "drizzle-orm";
+import type { PgTableFn } from "drizzle-orm/pg-core";
 
 // Core user management
 export const users = pgTable("users", {
@@ -82,6 +83,21 @@ export const doctorClinicAssignments = pgTable("doctor_clinic_assignments", {
   consultationFee: decimal("consultation_fee", { precision: 10, scale: 2 }),
 });
 
+// Appointment management
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  patientId: integer("patient_id").references(() => patients.id),
+  doctorId: integer("doctor_id").references(() => doctors.id),
+  clinicId: integer("clinic_id").references(() => clinics.id),
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  type: text("type").notNull(), // regular, followup, emergency
+  status: text("status").default("scheduled"), // scheduled, confirmed, completed, cancelled, no-show
+  notes: text("notes"),
+  paymentStatus: text("payment_status").default("pending"),
+  reminderSent: boolean("reminder_sent").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Queue management
 export const queueEntries = pgTable("queue_entries", {
   id: serial("id").primaryKey(),
@@ -103,21 +119,6 @@ export const queueEntries = pgTable("queue_entries", {
   vitals: jsonb("vitals"), // temperature, bp, etc
 });
 
-// Appointment management
-export const appointments = pgTable("appointments", {
-  id: serial("id").primaryKey(),
-  patientId: integer("patient_id").references(() => patients.id),
-  doctorId: integer("doctor_id").references(() => doctors.id),
-  clinicId: integer("clinic_id").references(() => clinics.id),
-  scheduledFor: timestamp("scheduled_for").notNull(),
-  type: text("type").notNull(), // regular, followup, emergency
-  status: text("status").default("scheduled"), // scheduled, confirmed, completed, cancelled, no-show
-  notes: text("notes"),
-  paymentStatus: text("payment_status").default("pending"),
-  reminderSent: boolean("reminder_sent").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 // Visit records
 export const visitRecords = pgTable("visit_records", {
   id: serial("id").primaryKey(),
@@ -136,9 +137,10 @@ export const visitRecords = pgTable("visit_records", {
   visitedAt: timestamp("visited_at").defaultNow(),
 });
 
-// Define base types using InferSelectModel and InferInsertModel
+// Define types
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
+export type SelectUser = User;  // Add this export for auth.ts
 
 export type Patient = InferSelectModel<typeof patients>;
 export type NewPatient = InferInsertModel<typeof patients>;
@@ -196,6 +198,7 @@ export const doctorsRelations = relations(doctors, ({ one, many }) => ({
     fields: [doctors.userId],
     references: [users.id],
   }),
+  metrics: many(doctorMetrics),
   clinicAssignments: many(doctorClinicAssignments),
   queueEntries: many(queueEntries),
   appointments: many(appointments),
@@ -207,6 +210,83 @@ export const clinicsRelations = relations(clinics, ({ many }) => ({
   queueEntries: many(queueEntries),
   appointments: many(appointments),
   visitRecords: many(visitRecords),
+}));
+
+export const doctorMetricsRelations = relations(doctorMetrics, ({ one }) => ({
+  doctor: one(doctors, {
+    fields: [doctorMetrics.doctorId],
+    references: [doctors.id],
+  }),
+}));
+
+export const doctorClinicAssignmentsRelations = relations(doctorClinicAssignments, ({ one }) => ({
+  doctor: one(doctors, {
+    fields: [doctorClinicAssignments.doctorId],
+    references: [doctors.id],
+  }),
+  clinic: one(clinics, {
+    fields: [doctorClinicAssignments.clinicId],
+    references: [clinics.id],
+  }),
+}));
+
+export const appointmentsRelations = relations(appointments, ({ one, many }) => ({
+  patient: one(patients, {
+    fields: [appointments.patientId],
+    references: [patients.id],
+  }),
+  doctor: one(doctors, {
+    fields: [appointments.doctorId],
+    references: [doctors.id],
+  }),
+  clinic: one(clinics, {
+    fields: [appointments.clinicId],
+    references: [clinics.id],
+  }),
+  queueEntries: many(queueEntries),
+  visitRecords: many(visitRecords),
+}));
+
+export const queueEntriesRelations = relations(queueEntries, ({ one }) => ({
+  patient: one(patients, {
+    fields: [queueEntries.patientId],
+    references: [patients.id],
+  }),
+  doctor: one(doctors, {
+    fields: [queueEntries.doctorId],
+    references: [doctors.id],
+  }),
+  clinic: one(clinics, {
+    fields: [queueEntries.clinicId],
+    references: [clinics.id],
+  }),
+  appointment: one(appointments, {
+    fields: [queueEntries.appointmentId],
+    references: [appointments.id],
+  }),
+}));
+
+export const visitRecordsRelations = relations(visitRecords, ({ one }) => ({
+  patient: one(patients, {
+    fields: [visitRecords.patientId],
+    references: [patients.id],
+  }),
+  doctor: one(doctors, {
+    fields: [visitRecords.doctorId],
+    references: [doctors.id],
+  }),
+  clinic: one(clinics, {
+    fields: [visitRecords.clinicId],
+    references: [clinics.id],
+  }),
+  queueEntry: one(queueEntries, {
+    fields: [visitRecords.queueEntryId],
+    references: [queueEntries.id],
+  }),
+  appointment: one(appointments, {
+    fields: [visitRecords.appointmentId],
+    references: [appointments.id],
+  }),
 }));
 
 // Create Zod schemas for validation
@@ -224,3 +304,9 @@ export const selectClinicSchema = createSelectSchema(clinics);
 
 export const insertQueueEntrySchema = createInsertSchema(queueEntries);
 export const selectQueueEntrySchema = createSelectSchema(queueEntries);
+
+export const insertAppointmentSchema = createInsertSchema(appointments);
+export const selectAppointmentSchema = createSelectSchema(appointments);
+
+export const insertVisitRecordSchema = createInsertSchema(visitRecords);
+export const selectVisitRecordSchema = createSelectSchema(visitRecords);
