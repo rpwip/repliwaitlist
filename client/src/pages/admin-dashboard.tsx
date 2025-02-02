@@ -36,6 +36,7 @@ export default function AdminDashboard() {
           <TableHeader>
             <TableRow>
               <TableHead>Queue #</TableHead>
+              <TableHead>Patient ID</TableHead>
               <TableHead>Patient Name</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -45,7 +46,8 @@ export default function AdminDashboard() {
             {queue.map((entry) => (
               <TableRow key={entry.id}>
                 <TableCell>{entry.queueNumber}</TableCell>
-                <TableCell>{entry.patient.fullName}</TableCell>
+                <TableCell>{entry.patientId}</TableCell>
+                <TableCell>{entry.patient?.fullName}</TableCell>
                 <TableCell>{entry.status}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">

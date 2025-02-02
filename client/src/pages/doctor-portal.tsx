@@ -144,6 +144,7 @@ type QueueEntry = {
   id: number;
   queueNumber: number;
   status: string;
+  patientId: number;  // Add explicit patientId field
   patient: {
     id: number;
     fullName: string;
@@ -264,6 +265,7 @@ export default function DoctorPortal() {
           id: entry.id,
           queueNumber: entry.queueNumber,
           status: entry.status,
+          patientId: entry.patientId || entry.patient?.id,
           patient: {
             id: entry.patientId || entry.patient?.id,  // Try both possible locations
             fullName: entry.patient?.fullName || entry.fullName || 'Unknown Patient'
@@ -805,6 +807,9 @@ const renderQueue = () => (
                     <p className="font-medium">
                       #{entry.queueNumber} - {entry.patient?.fullName || 'Unknown Patient'}
                     </p>
+                    <p className="text-sm text-muted-foreground">
+                      Patient ID: {entry.patientId || entry.patient?.id}
+                    </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
                       <span>Waiting time: {entry.estimatedWaitTime}min</span>
@@ -857,6 +862,9 @@ const renderQueue = () => (
                   <p className="text-sm text-muted-foreground">
                     Queue #{currentQueueEntry.queueNumber}
                   </p>
+                  <p className="text-sm text-muted-foreground">
+                    Patient ID: {currentQueueEntry.patientId || currentQueueEntry.patient?.id}
+                  </p>
                 </div>
               </div>
 
@@ -885,7 +893,7 @@ const renderQueue = () => (
                   <div>
                     <p className="text-sm text-muted-foreground">SpO2</p>
                     <p>{currentQueueEntry.vitals?.spo2 || 'N/A'}%</p>
-                                    </div>
+                  </div>
                 </div>
               </div>
 
