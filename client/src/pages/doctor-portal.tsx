@@ -123,6 +123,7 @@ export default function DoctorPortal() {
   const [brandsSearchTerm, setBrandsSearchTerm] = useState("");
   const [view, setView] = useState<"overview" | "patients" | "prescriptions" | "clinics">("overview");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -597,8 +598,6 @@ export default function DoctorPortal() {
   );
 
   const renderPatients = () => {
-    const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
-
     return (
       <div className="space-y-6">
         {/* Search Box */}
