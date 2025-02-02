@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./lib/protected-route";
 import HomePage from "./pages/home-page";
 import AuthPage from "./pages/auth-page";
 import QueueDisplay from "./pages/queue-display";
+import Queue from "./pages/queue";
 import AdminDashboard from "./pages/admin-dashboard";
 import PatientPortal from "./pages/patient-portal";
 import DoctorPortal from "./pages/doctor-portal";
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/register" component={RegistrationPage} />
       <Route path="/display" component={QueueDisplay} />
+      <Route path="/queue" component={Queue} />
       <Route path="/patient/:id" component={PatientPortal} />
       <ProtectedRoute path="/doctor" component={DoctorPortal} />
       <ProtectedRoute path="/admin" component={AdminDashboard} />

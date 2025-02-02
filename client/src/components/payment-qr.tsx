@@ -83,7 +83,7 @@ export default function PaymentQR({
       setIsConfirming(true);
       await confirmPayment(queueId);
       setIsPaid(true);
-      setLocation(`/display?clinicId=${clinicDetails.id}`);
+      setLocation(`/queue?clinicId=${clinicDetails.id}`);
     } catch (error) {
       console.error('Payment confirmation failed:', error);
     } finally {
