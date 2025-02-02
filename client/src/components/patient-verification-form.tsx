@@ -117,10 +117,15 @@ export default function PatientVerificationForm() {
   const handleRegistration = async (data: PatientFormData) => {
     console.log("Starting registration with data:", data);
     try {
+      // Ensure mobile number is set
+      if (!data.mobile) {
+        data.mobile = verificationForm.getValues().mobile;
+      }
+
       const payload = {
-        fullName: data.fullName,
-        email: data.email || null,
-        mobile: data.mobile,
+        fullName: data.fullName.trim(),
+        email: data.email ? data.email.trim() : null,
+        mobile: data.mobile.trim(),
       };
 
       console.log("Sending registration payload:", payload);

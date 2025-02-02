@@ -306,9 +306,12 @@ export function registerRoutes(app: Express): Server {
 
   // Public endpoints
   app.post("/api/register-patient", async (req, res) => {
+    console.log('Received registration request:', req.body);
     const result = insertPatientSchema.safeParse(req.body);
     if (!result.success) {
-      return res.status(400).send(fromZodError(result.error).toString());
+      const errorMessage = fromZodError(result.error).toString();
+      console.error('Validation failed:', errorMessage);
+      return res.status(400).send(errorMessage);
     }
 
     try {
@@ -324,16 +327,19 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       const nextQueueNumber = (lastQueueEntry?.queueNumber || 0) + 1;
+      console.log('Creating new patient with data:', result.data);
 
       // Insert patient first
       const [patient] = await db
         .insert(patients)
         .values({
           fullName: result.data.fullName,
-          email: result.data.email,
+          email: result.data.email || null,
           mobile: result.data.mobile
         })
         .returning();
+
+      console.log('Patient created:', patient);
 
       // Then create queue entry
       const [entry] = await db
@@ -345,11 +351,13 @@ export function registerRoutes(app: Express): Server {
         })
         .returning();
 
+      console.log('Queue entry created:', entry);
+
       wss.broadcast({ type: "QUEUE_UPDATE" });
       res.status(201).json({ patient, queueEntry: entry });
     } catch (error) {
       console.error('Registration error:', error);
-      res.status(500).send("Failed to register patient");
+      res.status(500).send(error instanceof Error ? error.message : "Failed to register patient");
     }
   });
 
@@ -579,7 +587,7 @@ export function registerRoutes(app: Express): Server {
        * @property {string} fullName - The full name of the patient
        * @property {number} estimatedWaitTime - The estimated wait time for the patient
        * @property {Date} createdAt - The timestamp when the queue entry was created
-      */
+       */
       const queueWithWaitTimes = entries.map((entry, index) => {
         if (!entry || !entry.id || !entry.fullName) {
           console.error('Invalid queue entry:', entry);
