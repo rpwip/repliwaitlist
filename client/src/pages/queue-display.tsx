@@ -2,12 +2,15 @@ import { useQueue } from "@/hooks/use-queue";
 import { Card } from "@/components/ui/card";
 import QueueNumber from "@/components/queue-number";
 import { Clock } from "lucide-react";
+import { PatientHistoryModal } from "@/components/PatientHistoryModal";
+import { useState } from "react";
 
 type QueueEntryWithWaitTime = {
   id: number;
   queueNumber: number;
   status: string;
   patient: {
+    id: number;
     fullName: string;
   };
   estimatedWaitTime: number;
@@ -16,6 +19,7 @@ type QueueEntryWithWaitTime = {
 export default function QueueDisplay() {
   const { queue, isLoading } = useQueue();
   const typedQueue = queue as QueueEntryWithWaitTime[];
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -29,6 +33,10 @@ export default function QueueDisplay() {
   const waitingPatients = typedQueue
     .filter((q) => q.status === "waiting")
     .slice(0, 5);
+
+  const handleStartConsult = (patientId: number) => {
+    setSelectedPatientId(patientId);
+  };
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -50,6 +58,12 @@ export default function QueueDisplay() {
                 <p className="text-lg text-center">
                   {currentPatient.patient.fullName}
                 </p>
+                <button 
+                  onClick={() => handleStartConsult(currentPatient.patient.id)}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90"
+                >
+                  Start Consultation
+                </button>
               </div>
             ) : (
               <p className="text-center text-muted-foreground">
@@ -91,6 +105,15 @@ export default function QueueDisplay() {
             </div>
           </Card>
         </div>
+
+        {/* Patient History Modal */}
+        {selectedPatientId && (
+          <PatientHistoryModal
+            patientId={selectedPatientId}
+            onClose={() => setSelectedPatientId(null)}
+            open={!!selectedPatientId}
+          />
+        )}
       </div>
     </div>
   );
