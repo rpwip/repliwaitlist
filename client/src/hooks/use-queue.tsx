@@ -107,6 +107,42 @@ export function useQueue() {
     }
   });
 
+  // Add payment verification mutation
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async ({ queueId, transactionRef }: { queueId: number, transactionRef: string }) => {
+      const res = await apiRequest(
+        "GET",
+        `/api/verify-payment/${queueId}/${transactionRef}`
+      );
+      return res.json();
+    }
+  });
+
+  // Add payment confirmation mutation
+  const confirmPaymentMutation = useMutation({
+    mutationFn: async (queueId: number) => {
+      const res = await apiRequest("POST", `/api/confirm-payment/${queueId}`);
+      if (!res.ok) {
+        throw new Error("Failed to confirm payment");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+      toast({
+        title: "Payment confirmed",
+        description: "Your queue number has been activated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Payment confirmation failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     queue: queueQuery.data ?? [],
     clinics: clinicsQuery.data ?? [],
@@ -114,5 +150,7 @@ export function useQueue() {
     isError: queueQuery.isError || clinicsQuery.isError,
     isConnected,
     registerPatient: registerPatientMutation.mutateAsync,
+    verifyPayment: verifyPaymentMutation.mutateAsync,
+    confirmPayment: confirmPaymentMutation.mutateAsync,
   };
 }
