@@ -462,7 +462,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
   
-  // Add these endpoints after the existing queue-related endpoints
+  // Modify the queue endpoint to include better error handling and logging
   app.get("/api/queue/:clinicId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { clinicId } = req.params;
@@ -488,7 +488,8 @@ export function registerRoutes(app: Express): Server {
           patientId: queueEntries.patientId,
           patient: patients,
           visitReason: queueEntries.visitReason,
-          vitals: queueEntries.vitals
+          vitals: queueEntries.vitals,
+          clinicId: queueEntries.clinicId
         })
         .from(queueEntries)
         .innerJoin(patients, eq(queueEntries.patientId, patients.id))
@@ -504,6 +505,8 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(queueEntries.queueNumber);
 
+      console.log('Queue entries for clinic:', clinicId, entries);
+
       // Calculate estimated wait time
       const avgWaitTime = await calculateAverageWaitTime();
       const queueWithWaitTimes = entries.map((entry, index) => ({
@@ -514,7 +517,11 @@ export function registerRoutes(app: Express): Server {
       res.json(queueWithWaitTimes);
     } catch (error) {
       console.error('Queue fetch error:', error);
-      res.status(500).send("Failed to fetch queue");
+      // Send more detailed error response
+      res.status(500).json({
+        error: 'Failed to fetch queue',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -899,7 +906,7 @@ app.get("/api/doctor/patients", async (req, res) => {
       return res.status(400).send(fromZodError(result.error).toString());
     }
 
-    try {
+    try {```
       const [visit] = await db
         .insert(visitRecords)
         .values(result.data)
