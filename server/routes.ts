@@ -395,7 +395,7 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to verify payment");
     }
   });
-
+  
   app.post("/api/confirm-payment/:queueId", async (req, res) => {
     const { queueId } = req.params;
     try {
@@ -462,34 +462,48 @@ export function registerRoutes(app: Express): Server {
     }
   });
   
-  // Modify the queue endpoint to include better error handling and logging
+  // Modify the queue endpoint to handle clinic-specific queues
   app.get("/api/queue/:clinicId", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const { clinicId } = req.params;
 
     try {
-      const [doctor] = await db
+      // First verify the doctor has access to this clinic
+      const [doctorClinic] = await db
         .select()
-        .from(doctors)
-        .where(eq(doctors.userId, req.user.id))
+        .from(doctorClinicAssignments)
+        .where(
+          and(
+            eq(doctorClinicAssignments.clinicId, parseInt(clinicId)),
+            eq(doctorClinicAssignments.isActive, true)
+          )
+        )
         .limit(1);
 
-      if (!doctor) {
-        return res.status(404).send("Doctor not found");
+      if (!doctorClinic) {
+        return res.status(403).json({ 
+          error: 'Access denied',
+          message: 'You do not have access to this clinic'
+        });
       }
 
       // Get queue entries for the specified clinic
       const entries = await db
         .select({
-          id: queueEntries.id,
-          queueNumber: queueEntries.queueNumber,
-          status: queueEntries.status,
-          createdAt: queueEntries.createdAt,
-          patientId: queueEntries.patientId,
-          patient: patients,
-          visitReason: queueEntries.visitReason,
-          vitals: queueEntries.vitals,
-          clinicId: queueEntries.clinicId
+          queueEntry: {
+            id: queueEntries.id,
+            queueNumber: queueEntries.queueNumber,
+            status: queueEntries.status,
+            createdAt: queueEntries.createdAt,
+            visitReason: queueEntries.visitReason,
+            vitals: queueEntries.vitals
+          },
+          patient: {
+            id: patients.id,
+            fullName: patients.fullName,
+            dateOfBirth: patients.dateOfBirth,
+            gender: patients.gender
+          }
         })
         .from(queueEntries)
         .innerJoin(patients, eq(queueEntries.patientId, patients.id))
@@ -505,19 +519,17 @@ export function registerRoutes(app: Express): Server {
         )
         .orderBy(queueEntries.queueNumber);
 
-      console.log('Queue entries for clinic:', clinicId, entries);
-
       // Calculate estimated wait time
       const avgWaitTime = await calculateAverageWaitTime();
       const queueWithWaitTimes = entries.map((entry, index) => ({
-        ...entry,
+        ...entry.queueEntry,
+        patient: entry.patient,
         estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
       }));
 
       res.json(queueWithWaitTimes);
     } catch (error) {
       console.error('Queue fetch error:', error);
-      // Send more detailed error response
       res.status(500).json({
         error: 'Failed to fetch queue',
         details: error instanceof Error ? error.message : String(error)
@@ -906,7 +918,7 @@ app.get("/api/doctor/patients", async (req, res) => {
       return res.status(400).send(fromZodError(result.error).toString());
     }
 
-    try {```
+    try {
       const [visit] = await db
         .insert(visitRecords)
         .values(result.data)
