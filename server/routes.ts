@@ -508,7 +508,7 @@ export function registerRoutes(app: Express): Server {
       }
       console.log(`Found clinic assignment: ${JSON.stringify(assignment)}`);
 
-      // Fetch queue entries for the specified clinic
+      // Fetch queue entries for clinic
       console.log(`Fetching queue entries for clinic ${clinicId}`);
       const entries = await db
         .select({
@@ -905,7 +905,7 @@ app.get("/api/doctor/patients", async (req, res) => {
     try {
       // Fetch patient basic info
       const [patient] = await db
-.select()
+       .select()
         .from(patients)
         .where(eq(patients.id, parseInt(patientId)))
         .limit(1);
@@ -1141,7 +1141,7 @@ app.get("/api/doctor/dashboard", async (req, res) => {
         total: sql<number>`sum(revenue)`.as('total'),
         projected: sql<number>`sum(revenue) + (avg(revenue) * 3)`.as('projected')
       }).from(doctorMetrics)
-.where(eq(doctorMetrics.doctorId, doctor.id))
+      .where(eq(doctorMetrics.doctorId, doctor.id))
       .limit(1);
 
       res.json({
