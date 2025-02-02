@@ -46,6 +46,13 @@ import type {
 } from "@db/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { PatientHistoryModal } from "@/components/PatientHistoryModal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type DoctorDashboardData = {
   metrics: SelectDoctorMetrics[];
@@ -121,9 +128,10 @@ export default function DoctorPortal() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [brandsSearchTerm, setBrandsSearchTerm] = useState("");
-  const [view, setView] = useState<"overview" | "patients" | "prescriptions" | "clinics">("overview");
+  const [view, setView] = useState<"overview" | "queue" | "patients" | "prescriptions">("overview");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+  const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -165,7 +173,7 @@ export default function DoctorPortal() {
     enabled: view === "prescriptions",
   });
 
-    const { data: clinicsData } = useQuery<DoctorClinicData[]>({
+  const { data: clinicsData } = useQuery<DoctorClinicData[]>({
     queryKey: ["/api/doctor/clinics", user?.id],
     queryFn: async () => {
       const response = await fetch("/api/doctor/clinics", {
@@ -174,8 +182,19 @@ export default function DoctorPortal() {
       if (!response.ok) throw new Error("Failed to fetch clinics");
       return response.json();
     },
-    enabled: view === "clinics" && !!user?.id,
   });
+
+   useEffect(() => {
+    if (clinicsData && !selectedClinicId) {
+      const yazhClinic = clinicsData.find(c => c.clinic.name === 'Yazh Health Care');
+      if (yazhClinic) {
+        setSelectedClinicId(yazhClinic.clinic.id);
+      }
+    }
+  }, [clinicsData, selectedClinicId]);
+
+  const currentDate = new Date();
+  const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
   const { data: patientsData } = useQuery<PaginatedPatientsResponse>({
     queryKey: ["/api/doctor/patients", user?.id, currentPage],
@@ -188,6 +207,80 @@ export default function DoctorPortal() {
     },
     enabled: view === "patients" && !!user?.id,
   });
+
+  const queueEntries = [
+    {
+        id: 1,
+        queueNumber: 1,
+        patient: {
+            id: 1,
+            fullName: 'Patient One',
+        },
+        estimatedWaitTime: 15,
+        visitReason: 'Checkup',
+        vitals: { bp: '120/80', temperature: '37.0' },
+        completedAt: new Date()
+    },
+    {
+        id: 2,
+        queueNumber: 2,
+        patient: {
+            id: 2,
+            fullName: 'Patient Two',
+        },
+        estimatedWaitTime: 30,
+        visitReason: 'Fever',
+        vitals: { bp: '130/85', temperature: '38.5' },
+        completedAt: new Date()
+    },
+    {
+      id: 3,
+        queueNumber: 3,
+        patient: {
+            id: 3,
+            fullName: 'Patient Three',
+        },
+        estimatedWaitTime: 20,
+        visitReason: 'Pain',
+         vitals: { bp: '110/70', temperature: '37.2' },
+        completedAt: new Date()
+    }
+  ]
+
+   const completedPatients = [
+    {
+      id: 4,
+      queueNumber: 4,
+      fullName: 'Patient Four',
+      completedAt: new Date()
+    },
+     {
+      id: 5,
+      queueNumber: 5,
+      fullName: 'Patient Five',
+        completedAt: new Date()
+    }
+   ]
+
+   const currentPatient = queueEntries[0];
+
+
+    const handleStartConsultation = (id: number) => {
+     console.log(`Start consultation for ${id}`)
+   }
+
+  const handleSkipPatient = (id: number) => {
+    console.log(`Skip Patient ${id}`);
+  };
+
+  const handleCompleteConsultation = (id: number) => {
+      console.log(`Complete Patient ${id}`);
+  };
+
+  const handlePauseQueue = () => {
+    console.log('Pause Queue')
+  }
+
 
   if (isLoading) {
     return (
@@ -487,13 +580,6 @@ export default function DoctorPortal() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Associated Clinics</CardTitle>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setView("clinics")}
-          >
-            View All Clinics
-          </Button>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -532,7 +618,174 @@ export default function DoctorPortal() {
       </Card>
     </div>
   );
-    const renderClinics = () => (
+  
+    const renderQueue = () => (
+    <div className="space-y-6">
+      {/* Clinic Selector and Date */}
+      <div className="flex items-center justify-between">
+        <Select
+          value={selectedClinicId?.toString()}
+          onValueChange={(value) => setSelectedClinicId(parseInt(value))}
+        >
+          <SelectTrigger className="w-[280px]">
+            <SelectValue placeholder="Select clinic" />
+          </SelectTrigger>
+          <SelectContent>
+            {clinicsData?.map((clinic) => (
+              <SelectItem
+                key={clinic.clinic.id}
+                value={clinic.clinic.id.toString()}
+              >
+                {clinic.clinic.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-lg font-medium">{formattedDate}</span>
+      </div>
+
+      {/* Queue and Patient Details Grid */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Left Side - Queue List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Current Queue</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {queueEntries?.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">#{entry.queueNumber} - {entry.patient.fullName}</p>
+                    <p className="text-sm text-muted-foreground">Waiting time: {entry.estimatedWaitTime}min</p>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleStartConsultation(entry.id)}
+                  >
+                    Start
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleSkipPatient(entry.id)}
+                  >
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Right Side - Current Patient Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Patient Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {currentPatient ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-8 w-8 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium">{currentPatient.fullName}</h3>
+                    <p className="text-sm text-muted-foreground">Queue #{currentPatient.queueNumber}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-medium">Reason for Visit</h4>
+                  <p>{currentPatient.visitReason || 'Not specified'}</p>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-medium">Vital Signs</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Blood Pressure</p>
+                      <p>{currentPatient.vitals?.bp || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Temperature</p>
+                      <p>{currentPatient.vitals?.temperature || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex space-x-2 mt-4">
+                  <Button 
+                    className="flex-1"
+                    onClick={() => handleCompleteConsultation(currentPatient.id)}
+                  >
+                    Complete
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handlePauseQueue()}
+                  >
+                    Pause Queue
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No patient currently in consultation</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Previously Seen Patients */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Previously Seen Patients Today</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {completedPatients?.map((patient) => (
+              <div
+                key={patient.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">#{patient.queueNumber} - {patient.fullName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Seen at: {format(new Date(patient.completedAt), 'HH:mm')}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedPatientId(patient.id)}
+                >
+                  View History
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+
+  const renderClinics = () => (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {clinicsData?.map((data) => (
@@ -744,13 +997,13 @@ export default function DoctorPortal() {
                     <Users className="h-4 w-4 mr-2" />
                     Patients
                   </Button>
-                   <Button
-                    variant={view === "clinics" ? "default" : "ghost"}
+                  <Button
+                    variant={view === "queue" ? "default" : "ghost"}
                     className="w-full justify-start"
-                    onClick={() => setView("clinics")}
+                    onClick={() => setView("queue")}
                   >
-                    <Building2 className="h-4 w-4 mr-2" />
-                    Clinics
+                    <Clock className="h-4 w-4 mr-2" />
+                    Queue
                   </Button>
                   <Button
                     variant={view === "prescriptions" ? "default" : "ghost"}
@@ -797,11 +1050,11 @@ export default function DoctorPortal() {
           <div className="md:col-span-9">
             {view === "overview" && renderOverview()}
             {view === "prescriptions" && renderPrescriptions()}
-            {view === "clinics" && renderClinics()}
+            {view === "queue" && renderQueue()}
             {view === "patients" && renderPatients()}
           </div>
         </div>
-        
+
         {/* Patient History Modal */}
         {selectedPatientId && (
           <PatientHistoryModal 

@@ -8,7 +8,7 @@ import {
   appointments, prescriptions, diagnoses, visitRecords,
   doctors, patientDoctorAssignments, patientPreferences, pharmacies, clinics,
   medicineOrders, insertVisitRecordSchema, insertDiagnosisSchema, insertPrescriptionSchema,
-  doctorMetrics, doctorClinicAssignments, prescriptionAnalytics, medicationBrands
+  doctorMetrics, doctorClinicAssignments, prescriptionAnalytics, medicationBrands, type SelectQueueEntry
 } from "@db/schema";
 import { desc, eq, and, gt, sql, or } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
@@ -461,7 +461,179 @@ export function registerRoutes(app: Express): Server {
       res.status(500).send("Failed to fetch queue");
     }
   });
+  
+  // Add these endpoints after the existing queue-related endpoints
+  app.get("/api/queue/:clinicId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { clinicId } = req.params;
 
+    try {
+      const [doctor] = await db
+        .select()
+        .from(doctors)
+        .where(eq(doctors.userId, req.user.id))
+        .limit(1);
+
+      if (!doctor) {
+        return res.status(404).send("Doctor not found");
+      }
+
+      // Get queue entries for the specified clinic
+      const entries = await db
+        .select({
+          id: queueEntries.id,
+          queueNumber: queueEntries.queueNumber,
+          status: queueEntries.status,
+          createdAt: queueEntries.createdAt,
+          patientId: queueEntries.patientId,
+          patient: patients,
+          visitReason: queueEntries.visitReason,
+          vitals: queueEntries.vitals
+        })
+        .from(queueEntries)
+        .innerJoin(patients, eq(queueEntries.patientId, patients.id))
+        .where(
+          and(
+            eq(queueEntries.clinicId, parseInt(clinicId)),
+            eq(queueEntries.isPaid, true),
+            or(
+              eq(queueEntries.status, "waiting"),
+              eq(queueEntries.status, "in-progress")
+            )
+          )
+        )
+        .orderBy(queueEntries.queueNumber);
+
+      // Calculate estimated wait time
+      const avgWaitTime = await calculateAverageWaitTime();
+      const queueWithWaitTimes = entries.map((entry, index) => ({
+        ...entry,
+        estimatedWaitTime: Math.ceil(avgWaitTime * (index + 1))
+      }));
+
+      res.json(queueWithWaitTimes);
+    } catch (error) {
+      console.error('Queue fetch error:', error);
+      res.status(500).send("Failed to fetch queue");
+    }
+  });
+
+  app.get("/api/queue/:clinicId/completed", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { clinicId } = req.params;
+
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const completedPatients = await db
+        .select({
+          id: queueEntries.id,
+          queueNumber: queueEntries.queueNumber,
+          patientId: queueEntries.patientId,
+          patient: patients,
+          completedAt: queueEntries.updatedAt
+        })
+        .from(queueEntries)
+        .innerJoin(patients, eq(queueEntries.patientId, patients.id))
+        .where(
+          and(
+            eq(queueEntries.clinicId, parseInt(clinicId)),
+            eq(queueEntries.status, "completed"),
+            gt(queueEntries.updatedAt, today)
+          )
+        )
+        .orderBy(desc(queueEntries.updatedAt));
+
+      res.json(completedPatients);
+    } catch (error) {
+      console.error('Completed patients fetch error:', error);
+      res.status(500).send("Failed to fetch completed patients");
+    }
+  });
+
+  app.post("/api/queue/:queueId/start", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { queueId } = req.params;
+
+    try {
+      const [entry] = await db
+        .update(queueEntries)
+        .set({ 
+          status: "in-progress",
+          updatedAt: new Date()
+        })
+        .where(eq(queueEntries.id, parseInt(queueId)))
+        .returning();
+
+      if (!entry) {
+        return res.status(404).send("Queue entry not found");
+      }
+
+      wss.broadcast({ type: "QUEUE_UPDATE" });
+      res.json(entry);
+    } catch (error) {
+      console.error('Start consultation error:', error);
+      res.status(500).send("Failed to start consultation");
+    }
+  });
+
+  app.post("/api/queue/:queueId/skip", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { queueId } = req.params;
+
+    try {
+      const [entry] = await db
+        .update(queueEntries)
+        .set({
+          status: "waiting",
+          queueNumber: sql`(
+            SELECT MAX(queue_number) + 1
+            FROM queue_entries
+            WHERE status = 'waiting'
+          )`,
+          updatedAt: new Date()
+        })
+        .where(eq(queueEntries.id, parseInt(queueId)))
+        .returning();
+
+      if (!entry) {
+        return res.status(404).send("Queue entry not found");
+      }
+
+      wss.broadcast({ type: "QUEUE_UPDATE" });
+      res.json(entry);
+    } catch (error) {
+      console.error('Skip patient error:', error);
+      res.status(500).send("Failed to skip patient");
+    }
+  });
+
+  app.post("/api/queue/:queueId/complete", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { queueId } = req.params;
+
+    try {
+      const [entry] = await db
+        .update(queueEntries)
+        .set({ 
+          status: "completed",
+          updatedAt: new Date()
+        })
+        .where(eq(queueEntries.id, parseInt(queueId)))
+        .returning();
+
+      if (!entry) {
+        return res.status(404).send("Queue entry not found");
+      }
+
+      wss.broadcast({ type: "QUEUE_UPDATE" });
+      res.json(entry);
+    } catch (error) {
+      console.error('Complete consultation error:', error);
+      res.status(500).send("Failed to complete consultation");
+    }
+  });
   // Protected endpoints
   app.post("/api/queue/:queueId/status", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

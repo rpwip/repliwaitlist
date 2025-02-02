@@ -103,11 +103,14 @@ export const queueEntries = pgTable("queue_entries", {
   id: serial("id").primaryKey(),
   patientId: integer("patient_id").references(() => patients.id),
   appointmentId: integer("appointment_id").references(() => appointments.id),
+  clinicId: integer("clinic_id").references(() => clinics.id),
   queueNumber: integer("queue_number").notNull(),
   priority: integer("priority").default(0),
   status: text("status").notNull().default("waiting"),
   isPaid: boolean("is_paid").default(false),
   notificationSent: boolean("notification_sent").default(false),
+  visitReason: text("visit_reason"),
+  vitals: jsonb("vitals"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -292,6 +295,22 @@ export const prescriptionAnalyticsRelations = relations(prescriptionAnalytics, (
   medicationBrand: one(medicationBrands, {
     fields: [prescriptionAnalytics.medicationBrandId],
     references: [medicationBrands.id],
+  }),
+}));
+
+// Add the new relation to queueEntriesRelations
+export const queueEntriesRelations = relations(queueEntries, ({ one }) => ({
+  patient: one(patients, {
+    fields: [queueEntries.patientId],
+    references: [patients.id],
+  }),
+  appointment: one(appointments, {
+    fields: [queueEntries.appointmentId],
+    references: [appointments.id],
+  }),
+  clinic: one(clinics, {
+     fields: [queueEntries.clinicId],
+     references: [clinics.id],
   }),
 }));
 
