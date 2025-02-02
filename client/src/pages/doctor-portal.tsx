@@ -251,7 +251,9 @@ export default function DoctorPortal() {
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
       if (!selectedClinicId) return null;
-      const response = await fetch(`/api/queue/${selectedClinicId}`);
+      const response = await fetch(`/api/queue/${selectedClinicId}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch queue");
       const data = await response.json();
       console.log("Raw queue data from API:", data);
