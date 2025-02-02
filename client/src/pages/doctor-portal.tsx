@@ -258,7 +258,7 @@ export default function DoctorPortal() {
       const data = await response.json();
 
       // Transform the data to match the QueueEntry type
-      return data.map((entry: any) => ({
+      return data.filter((entry: any) => entry.status === "waiting").map((entry: any) => ({
         id: entry.id,
         queueNumber: entry.queueNumber,
         status: entry.status,
@@ -893,7 +893,7 @@ const renderQueue = () => (
             <div className="text-center py-8 text-muted-foreground">
               <p>No patient currently in consultation</p>
             </div>
-          )}
+                    )}
         </CardContent>
       </Card>
     </div>
