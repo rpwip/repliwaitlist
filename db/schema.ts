@@ -102,7 +102,7 @@ export const payments = pgTable("payments", {
 
 export const queueEntries = pgTable("queue_entries", {
   id: serial("id").primaryKey(),
-  patientId: integer("patient_id").references(() => patients.id),
+  patientId: integer("patient_id").notNull().references(() => patients.id),
   appointmentId: integer("appointment_id").references(() => appointments.id),
   clinicId: integer("clinic_id").references(() => clinics.id),
   queueNumber: integer("queue_number").notNull(),
@@ -358,7 +358,12 @@ export const selectVisitRecordSchema = createSelectSchema(visitRecords);
 export const insertPaymentSchema = createInsertSchema(payments);
 export const selectPaymentSchema = createSelectSchema(payments);
 
-export const insertQueueEntrySchema = createInsertSchema(queueEntries);
+export const insertQueueEntrySchema = createInsertSchema(queueEntries).extend({
+  patientId: z.number({
+    required_error: "Patient ID is required",
+    invalid_type_error: "Patient ID must be a number",
+  }),
+});
 export const selectQueueEntrySchema = createSelectSchema(queueEntries);
 
 export const insertPharmacySchema = createInsertSchema(pharmacies);
