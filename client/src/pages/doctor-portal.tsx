@@ -139,6 +139,7 @@ type TopBrandData = {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// Update the QueueEntry type to match queue-display.tsx
 type QueueEntry = {
   id: number;
   queueNumber: number;
@@ -170,7 +171,7 @@ export default function DoctorPortal() {
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [showNewVisitModal, setShowNewVisitModal] = useState(false);
-  const [currentQueueEntry, setCurrentQueueEntry] = useState<QueueEntry | null>(null);
+  const [currentQueueEntry, setCurrentQueueEntry] = useState<any>(null);
 
   useEffect(() => {
     if (!user) {
@@ -247,6 +248,7 @@ export default function DoctorPortal() {
     enabled: view === "patients" && !!user?.id,
   });
 
+  // Update the queue data fetching to properly handle patient IDs
   const { data: queueData, refetch: refetchQueue } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
@@ -255,27 +257,25 @@ export default function DoctorPortal() {
       if (!response.ok) throw new Error("Failed to fetch queue");
       const data = await response.json();
 
-      // Transform and filter the data to match the QueueEntry type
-      return data
-        .filter((entry: any) => entry.status === "waiting")
-        .map((entry: any) => ({
-          id: entry.id,
-          queueNumber: entry.queueNumber,
-          status: entry.status,
-          patient: {
-            id: entry.patient?.id || entry.patientId,
-            fullName: entry.patient?.fullName || "Unknown Patient"
-          },
-          estimatedWaitTime: entry.estimatedTime || 0,
-          clinicId: selectedClinicId,
-          vitals: entry.vitals || {
-            bp: 'N/A',
-            temperature: 'N/A',
-            pulse: 'N/A',
-            spo2: 'N/A'
-          },
-          visitReason: entry.visitReason || ''
-        }));
+      // Transform the data to match the QueueEntry type
+      return data.map((entry: any) => ({
+        id: entry.id,
+        queueNumber: entry.queueNumber,
+        status: entry.status,
+        patient: {
+          id: entry.patient?.id || entry.patientId,
+          fullName: entry.patient?.fullName || entry.fullName
+        },
+        estimatedWaitTime: entry.estimatedWaitTime || 0,
+        clinicId: selectedClinicId,
+        vitals: entry.vitals || {
+          bp: 'N/A',
+          temperature: 'N/A',
+          pulse: 'N/A',
+          spo2: 'N/A'
+        },
+        visitReason: entry.visitReason || ''
+      }));
     },
     enabled: !!selectedClinicId,
   });
@@ -293,31 +293,14 @@ export default function DoctorPortal() {
 
   const startConsultation = useMutation({
     mutationFn: async (queueId: number) => {
-      const response = await fetch(`/api/queue/${queueId}/start`, {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await fetch(`/api/queue/${queueId}/start`, { method: "POST" });
       if (!response.ok) throw new Error("Failed to start consultation");
       return response.json();
     },
     onSuccess: () => {
       refetchQueue();
       refetchCompleted();
-      toast({
-        title: "Success",
-        description: "Started consultation with patient",
-      });
     },
-    onError: (error) => {
-      console.error("Failed to start consultation:", error);
-      toast({
-        title: "Error",
-        description: "Failed to start consultation. Please try again.",
-        variant: "destructive",
-      });
-    }
   });
 
   const skipPatient = useMutation({
@@ -359,8 +342,11 @@ export default function DoctorPortal() {
     setShowNewVisitModal(true);
   };
   
-  const handleStartConsultation = async (entry: QueueEntry) => {
+  // Update the handleStartConsultation function
+  const handleStartConsultation = (entry: QueueEntry) => {
     try {
+      console.log("Starting consultation for:", entry);
+
       if (!entry.patient?.id) {
         toast({
           title: "Error",
@@ -370,11 +356,28 @@ export default function DoctorPortal() {
         return;
       }
 
+      // Update state for modal
       setSelectedPatientId(entry.patient.id);
       setCurrentQueueEntry(entry);
       setShowNewVisitModal(true);
 
-      await startConsultation.mutateAsync(entry.id);
+      // Make the API call to start consultation
+      startConsultation.mutate(entry.id, {
+        onSuccess: () => {
+          toast({
+            title: "Success",
+            description: "Started consultation with patient",
+          });
+        },
+        onError: (error) => {
+          console.error("Failed to start consultation:", error);
+          toast({
+            title: "Error",
+            description: "Failed to start consultation. Please try again.",
+            variant: "destructive",
+          });
+        }
+      });
     } catch (error) {
       console.error('Error starting consultation:', error);
       toast({
@@ -732,6 +735,7 @@ export default function DoctorPortal() {
     </div>
   );
   
+// Update the queue rendering section
 const renderQueue = () => (
   <div className="space-y-6">
     {/* Clinic Selector and Date */}
@@ -889,13 +893,13 @@ const renderQueue = () => (
             <div className="text-center py-8 text-muted-foreground">
               <p>No patient currently in consultation</p>
             </div>
-                    )}
+          )}
         </CardContent>
       </Card>
     </div>
 
     {/* Completed Patients Section */}
-<Card>
+    <Card>
       <CardHeader>
         <CardTitle>Patients Seen Today</CardTitle>
       </CardHeader>
@@ -1141,52 +1145,100 @@ const renderQueue = () => (
   );
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">Doctor Portal</h1>
-            <p className="text-muted-foreground">
-              Manage your patients, appointments, and queue
-            </p>
-          </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card px-6 py-4">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <h1 className="text-2xl font-semibold">Doctor Portal</h1>
           <div className="flex items-center gap-4">
-            <Select
-              value={view}
-              onValueChange={(value) => setView(value as typeof view)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select view" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="overview">Overview</SelectItem>
-                <SelectItem value="queue">Queue Management</SelectItem>
-                <SelectItem value="patients">Patients</SelectItem>
-                <SelectItem value="prescriptions">Prescriptions</SelectItem>
-              </SelectContent>
-            </Select>
+            <span className="text-sm text-muted-foreground">
+              Dr. {user?.username}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="grid md:grid-cols-12 gap-6">
+          {/* Left Sidebar - Navigation */}
+          <div className="md:col-span-3 space-y-4">
+            <Card>
+              <CardContent className="p-4">
+                <nav className="space-y-2">
+                  <Button
+                    variant={view === "overview" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("overview")}
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Overview
+                  </Button>
+                  <Button
+                    variant={view === "patients" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("patients")}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Patients
+                  </Button>
+                  <Button
+                    variant={view === "queue" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("queue")}
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Queue
+                  </Button>
+                  <Button
+                    variant={view === "prescriptions" ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setView("prescriptions")}
+                  >
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    Prescriptions
+                  </Button>
+                </nav>
+              </CardContent>
+            </Card>
+
+            {/* Recent Patients */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Recent Patients</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {dashboardData?.recentPatients?.map((patient, index) => (
+                    <div
+                      key={`sidebar-recent-${patient.id}-${index}`}
+                      className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
+                      onClick={() => setSelectedPatientId(patient.id)}
+                    >
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <UserRound className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium">{patient.fullName}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content */}
+          <div className="md:col-span-9">
+            {view === "overview" && renderOverview()}
+            {view === "prescriptions" && renderPrescriptions()}
+            {view === "queue" && renderQueue()}
+            {view === "patients" && renderPatients()}
           </div>
         </div>
 
-        {view === "overview" && renderOverview()}
-        {view === "queue" && renderQueue()}
-        {view === "patients" && renderPatients()}
-        {view === "prescriptions" && renderPrescriptions()}
-
-        {selectedPatientId && (
-          <PatientHistoryModal
-            open={!!selectedPatientId}
-            onClose={() => {
-              setSelectedPatientId(null);
-              setShowNewVisitModal(false);
-              setCurrentQueueEntry(null);
-            }}
-            patientId={selectedPatientId}
-            showNewVisitForm={showNewVisitModal}
-            doctorId={user?.id}
-            clinicId={selectedClinicId}
-          />
-        )}
       </div>
     </div>
   );
