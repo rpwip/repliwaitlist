@@ -57,7 +57,6 @@ export function useQueue() {
         ws.onerror = (error) => {
           console.error('WebSocket error:', error);
           setIsConnected(false);
-          // Invalidate queries to trigger polling
           queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
           queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
         };
@@ -110,20 +109,14 @@ export function useQueue() {
   const clinicsQuery = useQuery<Clinic[]>({
     queryKey: ["/api/clinics"],
     staleTime: 1000 * 60 * 5,
-    refetchOnMount: true,
     retry: 3,
-    onSuccess: (data) => {
-      console.log('Clinics data fetched successfully:', data);
-    },
-    onError: (error) => {
-      console.error('Error fetching clinics:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load clinics. Please try again.",
-        variant: "destructive",
-      });
-    }
+    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 30000),
   });
+
+  console.log('Current clinics data:', clinicsQuery.data);
+  console.log('Clinics loading state:', clinicsQuery.isLoading);
+  console.log('Clinics error state:', clinicsQuery.isError);
+  if (clinicsQuery.error) console.error('Clinics error:', clinicsQuery.error);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ queueId, status }: { queueId: number; status: string }) => {
@@ -152,11 +145,6 @@ export function useQueue() {
       throw error;
     }
   });
-
-  console.log('Current clinics data:', clinicsQuery.data);
-  console.log('Clinics loading state:', clinicsQuery.isLoading);
-  console.log('Clinics error state:', clinicsQuery.isError);
-
 
   return {
     queue: queueQuery.data ?? [],
