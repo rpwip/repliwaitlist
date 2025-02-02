@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueue } from "@/hooks/use-queue";
 import { usePatient } from "@/hooks/use-patient";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,40 +14,21 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Loader2, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
 import PaymentQR from "./payment-qr";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
-
-const patientFormSchema = z.object({
-  fullName: z.string().min(1, "Name is required"),
-  email: z.string().email().optional().or(z.literal("")),
-  mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
-});
-
-type PatientFormData = z.infer<typeof patientFormSchema>;
+import { useLocation } from "wouter";
 
 export default function PatientVerificationForm() {
-  const { registerPatient } = useQueue();
   const { verifyPatient, isVerifying } = usePatient();
   const { toast } = useToast();
   const { language } = useLanguage();
-  const [registrationData, setRegistrationData] = useState<any>(null);
-  const [isNewPatient, setIsNewPatient] = useState(false);
   const [foundPatients, setFoundPatients] = useState<any[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [, setLocation] = useLocation();
 
-  const verificationForm = useForm({
+  const form = useForm({
     defaultValues: {
-      mobile: "",
-    },
-  });
-
-  const registrationForm = useForm<PatientFormData>({
-    resolver: zodResolver(patientFormSchema),
-    defaultValues: {
-      fullName: "",
-      email: "",
       mobile: "",
     },
   });
@@ -58,27 +37,11 @@ export default function PatientVerificationForm() {
     try {
       const response = await verifyPatient({ mobile: data.mobile });
 
-      // Clear previous states
-      setRegistrationData(null);
-      setFoundPatients([]);
-      setSelectedPatient(null);
-
       if (!response) {
-        setIsNewPatient(true);
-        // Reset registration form with mobile only
-        registrationForm.setValue("mobile", data.mobile);
-        registrationForm.setValue("fullName", "");
-        registrationForm.setValue("email", "");
-
-        toast({
-          title: "New Patient",
-          description: "Please complete the registration form.",
-        });
+        // Redirect to registration page with mobile number
+        setLocation(`/register?mobile=${encodeURIComponent(data.mobile)}`);
         return;
       }
-
-      // Handle existing patient(s)
-      setIsNewPatient(false);
 
       if (Array.isArray(response)) {
         setFoundPatients(response);
@@ -89,14 +52,16 @@ export default function PatientVerificationForm() {
       } else {
         setSelectedPatient(response);
         if (response.queueEntry) {
-          setRegistrationData({ patient: response, queueEntry: response.queueEntry });
+          toast({
+            title: "Patient Found",
+            description: "Proceeding to payment...",
+          });
+        } else {
+          toast({
+            title: "Patient Found",
+            description: "Patient verified successfully.",
+          });
         }
-        toast({
-          title: "Patient Found",
-          description: response.queueEntry 
-            ? "Proceeding to payment..." 
-            : "Patient verified successfully.",
-        });
       }
     } catch (error) {
       console.error("Verification error:", error);
@@ -108,33 +73,9 @@ export default function PatientVerificationForm() {
     }
   };
 
-  const handleRegistration = async (data: PatientFormData) => {
-    try {
-      const payload = {
-        fullName: data.fullName.trim(),
-        email: data.email ? data.email.trim() : null,
-        mobile: data.mobile.trim(),
-      };
-
-      const result = await registerPatient(payload);
-      setRegistrationData(result);
-      toast({
-        title: "Registration successful",
-        description: "Please proceed with the payment to secure your spot.",
-      });
-    } catch (error: any) {
-      console.error("Registration error:", error);
-      toast({
-        title: "Registration failed",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Show payment QR if registration complete
-  if (registrationData?.queueEntry || (selectedPatient?.queueEntry && !isNewPatient)) {
-    const queueEntry = registrationData?.queueEntry || selectedPatient?.queueEntry;
+  // Show payment QR if selected patient has queue entry
+  if (selectedPatient?.queueEntry) {
+    const queueEntry = selectedPatient.queueEntry;
     return (
       <Card className="p-6">
         <CardHeader>
@@ -158,7 +99,7 @@ export default function PatientVerificationForm() {
   }
 
   // Show patient selection if multiple patients found
-  if (foundPatients.length > 0 && !isNewPatient) {
+  if (foundPatients.length > 0) {
     return (
       <Card>
         <CardHeader>
@@ -189,74 +130,12 @@ export default function PatientVerificationForm() {
     );
   }
 
-  // Show registration form for new patient
-  if (isNewPatient) {
-    return (
-      <Form {...registrationForm}>
-        <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
-          <FormField
-            control={registrationForm.control}
-            name="fullName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Full Name</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder={getTranslation('fullNamePlaceholder', language)}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={registrationForm.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email (Optional)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="email"
-                    placeholder={getTranslation('emailPlaceholder', language)}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={registrationForm.control}
-            name="mobile"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Mobile Number</FormLabel>
-                <FormControl>
-                  <Input {...field} readOnly />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <Button type="submit" className="w-full">
-            Register
-          </Button>
-        </form>
-      </Form>
-    );
-  }
-
   // Show verification form (default view)
   return (
-    <Form {...verificationForm}>
-      <form onSubmit={verificationForm.handleSubmit(handleVerification)} className="space-y-6">
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleVerification)} className="space-y-6">
         <FormField
-          control={verificationForm.control}
+          control={form.control}
           name="mobile"
           render={({ field }) => (
             <FormItem>
