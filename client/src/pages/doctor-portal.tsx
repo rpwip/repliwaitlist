@@ -1,31 +1,11 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useLocation } from "wouter";
 import {
   Users,
-  Calendar,
-  ClipboardList,
-  Search,
   UserRound,
-  Clock,
-  TrendingUp,
-  Building2,
-  Award,
-  Activity,
   PieChart,
-  ArrowUpRight,
-  ArrowDownRight,
-  Box,
-  BadgeCheck,
-  MapPin,
-  Phone,
-  Mail,
-  Calendar as CalendarIcon,
-  Pill,
-  User,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -37,7 +17,6 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import ConsultationView from "./consultation-view";
-import type { SelectDoctorMetrics, SelectClinic } from "@db/schema";
 import { useAuth } from "@/hooks/use-auth";
 
 type QueueEntry = {
@@ -46,12 +25,7 @@ type QueueEntry = {
   status: string;
   fullName: string;
   estimatedWaitTime: number;
-  createdAt: string;
-  patientId?: number;
-  patient?: {
-    id: number;
-    fullName: string;
-  };
+  patientId: number;
   vitals?: {
     bp?: string;
     temperature?: string;
@@ -64,12 +38,22 @@ type QueueEntry = {
 export default function DoctorPortal() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [view, setView] = useState<"overview" | "queue" | "patients" | "prescriptions" | "consultation">("overview");
+  const [view, setView] = useState<"queue" | "consultation">("queue");
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [currentQueueEntry, setCurrentQueueEntry] = useState<QueueEntry | null>(null);
 
+  // Fetch clinics data
+  const { data: clinicsData } = useQuery({
+    queryKey: ["/api/doctor/clinics", user?.id],
+    queryFn: async () => {
+      const response = await fetch("/api/doctor/clinics");
+      if (!response.ok) throw new Error("Failed to fetch clinics");
+      return response.json();
+    },
+  });
+
   // Fetch queue data
-  const { data: queueData, refetch: refetchQueue } = useQuery({
+  const { data: queueData } = useQuery({
     queryKey: ["/api/queue", selectedClinicId],
     queryFn: async () => {
       if (!selectedClinicId) return null;
@@ -82,24 +66,7 @@ export default function DoctorPortal() {
 
   const handleStartConsultation = (entry: QueueEntry) => {
     try {
-      // Format the entry with all required fields
-      const formattedEntry: QueueEntry = {
-        ...entry,
-        patient: {
-          fullName: entry.fullName,
-          id: entry.patientId || 0
-        },
-        patientId: entry.patientId || entry.patient?.id || 0,
-        vitals: entry.vitals || {
-          bp: 'N/A',
-          temperature: 'N/A',
-          pulse: 'N/A',
-          spo2: 'N/A'
-        },
-        visitReason: entry.visitReason || 'Not specified'
-      };
-
-      if (!formattedEntry.patientId) {
+      if (!entry.patientId) {
         toast({
           title: "Error",
           description: "Patient ID is missing",
@@ -108,7 +75,7 @@ export default function DoctorPortal() {
         return;
       }
 
-      setCurrentQueueEntry(formattedEntry);
+      setCurrentQueueEntry(entry);
       setView("consultation");
     } catch (error) {
       console.error('Error starting consultation:', error);
@@ -123,52 +90,72 @@ export default function DoctorPortal() {
   // Queue view component
   const renderQueue = () => (
     <div className="space-y-6">
-      {/* Queue and Patient Details Grid */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Left Side - Queue List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Queue</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!queueData ? (
-              <div className="flex items-center justify-center p-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
-            ) : queueData.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">No patients in queue</p>
-            ) : (
-              queueData.map((entry: QueueEntry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <UserRound className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">
-                        #{entry.queueNumber} - {entry.fullName || entry.patient?.fullName}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Waiting time: {entry.estimatedWaitTime}min
-                      </p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleStartConsultation(entry)}
-                  >
-                    Start Consultation
-                  </Button>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+      {/* Clinic Selector */}
+      <div className="flex items-center justify-between">
+        <Select
+          value={selectedClinicId?.toString()}
+          onValueChange={(value) => setSelectedClinicId(parseInt(value))}
+        >
+          <SelectTrigger className="w-[280px]">
+            <SelectValue placeholder="Select clinic" />
+          </SelectTrigger>
+          <SelectContent>
+            {clinicsData?.map((clinic: any) => (
+              <SelectItem
+                key={clinic.clinic.id}
+                value={clinic.clinic.id.toString()}
+              >
+                {clinic.clinic.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-lg font-medium">{format(new Date(), "EEEE, dd MMMM yyyy")}</span>
       </div>
+
+      {/* Queue List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Current Queue</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!queueData ? (
+            <div className="flex items-center justify-center p-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : queueData.length === 0 ? (
+            <p className="text-center text-muted-foreground py-4">No patients in queue</p>
+          ) : (
+            queueData.map((entry: QueueEntry) => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between p-4 border rounded-lg"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <UserRound className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-medium">
+                      #{entry.queueNumber} - {entry.fullName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Waiting time: {entry.estimatedWaitTime}min
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleStartConsultation(entry)}
+                >
+                  Start Consultation
+                </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 
@@ -178,14 +165,6 @@ export default function DoctorPortal() {
         {/* Sidebar */}
         <div className="w-64 border-r min-h-screen p-4">
           <nav className="space-y-2">
-            <Button
-              variant={view === "overview" ? "default" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => setView("overview")}
-            >
-              <PieChart className="mr-2 h-4 w-4" />
-              Overview
-            </Button>
             <Button
               variant={view === "queue" ? "default" : "ghost"}
               className="w-full justify-start"
@@ -201,7 +180,7 @@ export default function DoctorPortal() {
         <div className="flex-1 p-6">
           {view === "consultation" && currentQueueEntry ? (
             <ConsultationView
-              patientId={currentQueueEntry.patientId || currentQueueEntry.patient?.id || 0}
+              patientId={currentQueueEntry.patientId}
               doctorId={user?.id || 0}
               clinicId={selectedClinicId || 0}
               currentVisit={{
@@ -214,10 +193,8 @@ export default function DoctorPortal() {
                 visitReason: currentQueueEntry.visitReason || 'Not specified'
               }}
             />
-          ) : view === "queue" ? (
-            renderQueue()
           ) : (
-            <div>Select a view from the sidebar</div>
+            renderQueue()
           )}
         </div>
       </div>
