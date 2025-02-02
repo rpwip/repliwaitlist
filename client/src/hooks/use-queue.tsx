@@ -136,6 +136,10 @@ export function useQueue() {
     mutationFn: async (data: RegistrationData) => {
       console.log('Starting patient registration with data:', data);
       try {
+        if (!data.clinicId) {
+          throw new Error('Clinic ID is required for registration');
+        }
+
         const res = await apiRequest("POST", "/api/register-patient", data);
         console.log('Registration API response status:', res.status);
 
@@ -147,6 +151,12 @@ export function useQueue() {
 
         const jsonResponse = await res.json();
         console.log('Registration API success response:', jsonResponse);
+
+        // Ensure the queue entry has the clinic ID
+        if (jsonResponse.queueEntry && !jsonResponse.queueEntry.clinicId) {
+          jsonResponse.queueEntry.clinicId = data.clinicId;
+        }
+
         return jsonResponse;
       } catch (error) {
         console.error('Registration mutation error:', error);
