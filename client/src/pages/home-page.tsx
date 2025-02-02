@@ -5,14 +5,21 @@ import { LanguageSelector } from "@/components/language-selector";
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
-      <header className="bg-primary text-primary-foreground py-12">
+      <header className="bg-primary text-primary-foreground py-8">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-4xl font-bold">Cloud Cares</h1>
-              <p className="mt-2 text-lg opacity-90">
-                Health Revolutionizing Platform
-              </p>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <img
+                src="/attached_assets/cclogo.jpeg"
+                alt="Cloud Cares Logo"
+                className="h-16 w-16 object-contain rounded-lg"
+              />
+              <div>
+                <h1 className="text-4xl font-bold">Cloud Cares</h1>
+                <p className="mt-2 text-lg opacity-90">
+                  India's Digital Health Revolution
+                </p>
+              </div>
             </div>
             <div className="w-56">
               <LanguageSelector />
