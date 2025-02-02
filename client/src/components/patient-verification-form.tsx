@@ -47,17 +47,17 @@ export default function PatientVerificationForm() {
   const [foundPatients, setFoundPatients] = useState<PatientData[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
 
-  const form = useForm<PatientFormData>({
-    resolver: zodResolver(patientFormSchema),
+  const verificationForm = useForm({
     defaultValues: {
-      fullName: "",
-      email: "",
       mobile: "",
     },
   });
 
-  const verificationForm = useForm({
+  const registrationForm = useForm<PatientFormData>({
+    resolver: zodResolver(patientFormSchema),
     defaultValues: {
+      fullName: "",
+      email: "",
       mobile: "",
     },
   });
@@ -79,15 +79,14 @@ export default function PatientVerificationForm() {
       });
     } catch (error) {
       setIsNewPatient(true);
-      // Reset the entire form before setting the mobile number
-      form.reset({
+      // Initialize registration form with mobile number
+      registrationForm.reset({
         fullName: "",
         email: "",
         mobile: data.mobile,
       });
     }
   };
-
 
   const handleRegistration = async (data: PatientFormData) => {
     try {
@@ -197,10 +196,10 @@ export default function PatientVerificationForm() {
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleRegistration)} className="space-y-6">
+    <Form {...registrationForm}>
+      <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
         <FormField
-          control={form.control}
+          control={registrationForm.control}
           name="fullName"
           render={({ field }) => (
             <FormItem>
@@ -216,7 +215,6 @@ export default function PatientVerificationForm() {
                 <Input
                   placeholder={getTranslation("fullNamePlaceholder", language)}
                   {...field}
-                  onChange={(e) => field.onChange(e)}
                 />
               </FormControl>
               <FormMessage />
@@ -225,7 +223,7 @@ export default function PatientVerificationForm() {
         />
 
         <FormField
-          control={form.control}
+          control={registrationForm.control}
           name="email"
           render={({ field }) => (
             <FormItem>
@@ -253,7 +251,7 @@ export default function PatientVerificationForm() {
         />
 
         <FormField
-          control={form.control}
+          control={registrationForm.control}
           name="mobile"
           render={({ field }) => (
             <FormItem>
@@ -277,7 +275,7 @@ export default function PatientVerificationForm() {
         />
 
         <Button type="submit" className="w-full">
-          {form.formState.isSubmitting ? (
+          {registrationForm.formState.isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               {getTranslation("registering", language)}
