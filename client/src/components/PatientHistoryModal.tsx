@@ -89,7 +89,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
 
         const data = await response.json();
         console.log("Received patient history data:", data);
-        return data;
+        return data as PatientHistory;
       } catch (err) {
         console.error("Error in patient history fetch:", err);
         throw err;
@@ -97,8 +97,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
     },
     enabled: !!patientId,
     retry: 1,
-    staleTime: 0, // Disable stale time to always fetch fresh data
-    cacheTime: 0, // Disable caching to always fetch fresh data
+    gcTime: 0
   });
 
   if (!patientId) return null;
@@ -114,7 +113,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
 
         {error ? (
           <div className="flex items-center justify-center h-full text-destructive">
-            {error.message}
+            {error instanceof Error ? error.message : 'An error occurred'}
           </div>
         ) : (
           <Tabs defaultValue="overview" className="w-full h-full">
@@ -211,17 +210,17 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                             date: v.visitedAt,
                             type: "Visit",
                             details: v.diagnosis,
-                          })) || [],
+                          })),
                           ...history.diagnoses.map(d => ({
                             date: d.diagnosedAt,
                             type: "Diagnosis",
                             details: d.condition,
-                          })) || [],
+                          })),
                           ...history.prescriptions.map(p => ({
                             date: p.createdAt,
                             type: "Prescription",
                             details: p.medications.map(m => m.name).join(", "),
-                          })) || [],
+                          }))
                         ]
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                           .slice(0, 10)
