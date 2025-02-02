@@ -31,7 +31,7 @@ export function usePatient() {
 
         if (!res.ok) {
           if (res.status === 404) {
-            throw new Error("Patient not found");
+            return null; // Return null for not found instead of throwing
           }
           const errorText = await res.text();
           throw new Error(errorText || "Failed to verify patient");
@@ -42,18 +42,12 @@ export function usePatient() {
         return data;
       } catch (error) {
         console.error('Patient verification error:', error);
+        if (error instanceof Error && error.message.includes('404')) {
+          return null; // Handle 404 by returning null
+        }
         throw error;
       }
-    },
-    onError: (error: Error) => {
-      if (error.message !== "Patient not found") {
-        toast({
-          title: "Verification failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    },
+    }
   });
 
   const bookAppointmentMutation = useMutation({

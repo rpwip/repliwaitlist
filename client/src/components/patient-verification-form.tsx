@@ -77,45 +77,51 @@ export default function PatientVerificationForm() {
     console.log("Verifying patient with mobile:", data.mobile);
     try {
       const response = await verifyPatient({ mobile: data.mobile });
-      console.log("Verification response:", response);
+
+      if (!response) {
+        // Patient not found - prepare registration form
+        setIsNewPatient(true);
+        setFoundPatients([]);
+        setSelectedPatient(null);
+        registrationForm.reset({
+          fullName: "",
+          email: "",
+          mobile: data.mobile,
+        });
+        toast({
+          title: "New Patient",
+          description: "Please complete the registration form.",
+        });
+        return;
+      }
 
       if (Array.isArray(response)) {
         setFoundPatients(response);
         setIsNewPatient(false);
         setSelectedPatient(null);
+        toast({
+          title: "Multiple Patients Found",
+          description: "Please select a patient to proceed"
+        });
       } else {
-        // Single patient found - set as selected
+        // Single patient found
         setSelectedPatient(response);
         setFoundPatients([]);
         setIsNewPatient(false);
-        // If patient already has a queue entry, this will trigger showing payment
         if (response.queueEntry) {
           setRegistrationData({ patient: response, queueEntry: response.queueEntry });
         }
+        toast({
+          title: "Patient Found",
+          description: "Proceeding with verification..."
+        });
       }
-
-      toast({
-        title: Array.isArray(response) ? "Multiple Patients Found" : "Patient Found",
-        description: Array.isArray(response) && response.length > 1
-          ? "Please select a patient to proceed"
-          : "Proceeding with verification...",
-      });
     } catch (error) {
-      console.log("Patient not found, setting up registration form");
-      setIsNewPatient(true);
-      setFoundPatients([]);
-      setSelectedPatient(null);
-
-      // Initialize registration form with mobile number only
-      registrationForm.reset({
-        fullName: "",
-        email: "",
-        mobile: data.mobile,
-      });
-
+      console.error("Verification error:", error);
       toast({
-        title: "New Patient",
-        description: "Please complete the registration form.",
+        title: "Verification failed",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
       });
     }
   };
