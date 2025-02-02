@@ -228,7 +228,7 @@ export default function ConsultationQueue({
                     Complete
                   </Button>
                 </div>
-                
+
                 <Button
                   variant="ghost"
                   className="w-full mt-2"
@@ -250,7 +250,7 @@ export default function ConsultationQueue({
       {showPatientHistory && currentPatient?.patient?.id && (
         <PatientHistoryModal
           patientId={currentPatient.patient.id}
-          isOpen={showPatientHistory}
+          open={showPatientHistory}
           onClose={() => setShowPatientHistory(false)}
         />
       )}
@@ -258,7 +258,7 @@ export default function ConsultationQueue({
       {showNewVisitModal && currentPatient?.patient?.id && (
         <NewVisitRecordModal
           patientId={currentPatient.patient.id}
-          isOpen={showNewVisitModal}
+          open={showNewVisitModal}
           onClose={() => setShowNewVisitModal(false)}
           onComplete={() => {
             setShowNewVisitModal(false);
