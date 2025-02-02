@@ -79,9 +79,15 @@ export default function PatientVerificationForm() {
       });
     } catch (error) {
       setIsNewPatient(true);
-      form.setValue("mobile", data.mobile);
+      // Reset the entire form before setting the mobile number
+      form.reset({
+        fullName: "",
+        email: "",
+        mobile: data.mobile,
+      });
     }
   };
+
 
   const handleRegistration = async (data: PatientFormData) => {
     try {
