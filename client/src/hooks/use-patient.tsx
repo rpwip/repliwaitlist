@@ -20,31 +20,37 @@ export function usePatient() {
 
   const verifyPatientMutation = useMutation({
     mutationFn: async (identifier: PatientIdentifier) => {
-      console.log('Verifying patient:', identifier);
+      console.log('Starting patient verification for:', identifier);
       try {
         // Clean the mobile number before sending
         const cleanMobile = identifier.mobile.replace(/[^\d+]/g, '');
+        console.log('Cleaned mobile number:', cleanMobile);
+
         const res = await apiRequest(
           "GET",
           `/api/patient/profile?mobile=${encodeURIComponent(cleanMobile)}`,
         );
 
+        console.log('API response status:', res.status);
+
+        // Handle 404 explicitly
+        if (res.status === 404) {
+          console.log('Patient not found - returning null');
+          return null;
+        }
+
         if (!res.ok) {
-          if (res.status === 404) {
-            return null; // Return null for not found instead of throwing
-          }
           const errorText = await res.text();
+          console.error('API error response:', errorText);
           throw new Error(errorText || "Failed to verify patient");
         }
 
         const data = await res.json();
-        console.log('Patient verification response:', data);
+        console.log('Successful patient verification response:', data);
         return data;
       } catch (error) {
         console.error('Patient verification error:', error);
-        if (error instanceof Error && error.message.includes('404')) {
-          return null; // Handle 404 by returning null
-        }
+        // Don't transform 404 to null here, let it be handled above
         throw error;
       }
     }

@@ -29,34 +29,15 @@ const patientFormSchema = z.object({
 
 type PatientFormData = z.infer<typeof patientFormSchema>;
 
-type QueueEntryData = {
-  id: number;
-  queueNumber: number;
-  status: string;
-};
-
-type PatientData = {
-  id: number;
-  fullName: string;
-  email: string | null;
-  mobile: string;
-  queueEntry?: QueueEntryData;
-};
-
-type RegistrationResponse = {
-  patient: PatientData;
-  queueEntry: QueueEntryData;
-};
-
 export default function PatientVerificationForm() {
   const { registerPatient } = useQueue();
   const { verifyPatient, isVerifying } = usePatient();
   const { toast } = useToast();
   const { language } = useLanguage();
-  const [registrationData, setRegistrationData] = useState<RegistrationResponse | null>(null);
+  const [registrationData, setRegistrationData] = useState<any>(null);
   const [isNewPatient, setIsNewPatient] = useState(false);
-  const [foundPatients, setFoundPatients] = useState<PatientData[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
+  const [foundPatients, setFoundPatients] = useState<any[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
 
   const verificationForm = useForm({
     defaultValues: {
@@ -69,25 +50,32 @@ export default function PatientVerificationForm() {
     defaultValues: {
       fullName: "",
       email: "",
-      mobile: "",
+      mobile: verificationForm.getValues().mobile || "",
     },
   });
 
   const handleVerification = async (data: { mobile: string }) => {
-    console.log("Verifying patient with mobile:", data.mobile);
+    console.log("Starting verification with mobile:", data.mobile);
     try {
       const response = await verifyPatient({ mobile: data.mobile });
+      console.log("Verification response:", response);
+
+      // Clear all states first
+      setRegistrationData(null);
+      setFoundPatients([]);
+      setSelectedPatient(null);
 
       if (!response) {
-        // Patient not found - prepare registration form
+        console.log("No patient found, preparing registration form");
         setIsNewPatient(true);
-        setFoundPatients([]);
-        setSelectedPatient(null);
+
+        // Reset registration form with only mobile
         registrationForm.reset({
           fullName: "",
           email: "",
           mobile: data.mobile,
         });
+
         toast({
           title: "New Patient",
           description: "Please complete the registration form.",
@@ -95,25 +83,30 @@ export default function PatientVerificationForm() {
         return;
       }
 
+      // Patient(s) found
+      setIsNewPatient(false);
+
       if (Array.isArray(response)) {
+        console.log("Multiple patients found:", response.length);
         setFoundPatients(response);
-        setIsNewPatient(false);
-        setSelectedPatient(null);
         toast({
           title: "Multiple Patients Found",
-          description: "Please select a patient to proceed"
+          description: "Please select a patient to proceed",
         });
       } else {
-        // Single patient found
+        console.log("Single patient found:", response);
         setSelectedPatient(response);
-        setFoundPatients([]);
-        setIsNewPatient(false);
+
         if (response.queueEntry) {
+          console.log("Patient has existing queue entry:", response.queueEntry);
           setRegistrationData({ patient: response, queueEntry: response.queueEntry });
         }
+
         toast({
           title: "Patient Found",
-          description: "Proceeding with verification..."
+          description: response.queueEntry 
+            ? "Proceeding to payment..." 
+            : "Patient verified successfully.",
         });
       }
     } catch (error) {
@@ -137,12 +130,7 @@ export default function PatientVerificationForm() {
 
       console.log("Sending registration payload:", payload);
       const result = await registerPatient(payload);
-      console.log("Registration API response:", result);
-
-      if (!result || !result.patient || !result.queueEntry) {
-        console.error("Invalid registration response:", result);
-        throw new Error("Invalid registration response structure");
-      }
+      console.log("Registration success:", result);
 
       setRegistrationData(result);
       toast({
@@ -160,12 +148,9 @@ export default function PatientVerificationForm() {
   };
 
   // Show payment QR if we have registration data or selected patient with queue entry
-  if (registrationData?.queueEntry || selectedPatient?.queueEntry) {
-    const queueId = registrationData?.queueEntry?.id || selectedPatient?.queueEntry?.id;
-    if (!queueId) {
-      console.error("Queue ID missing from:", { registrationData, selectedPatient });
-      return <div>Error: Queue entry not found</div>;
-    }
+  if (registrationData?.queueEntry || (selectedPatient?.queueEntry && !isNewPatient)) {
+    const queueEntry = registrationData?.queueEntry || selectedPatient?.queueEntry;
+    console.log("Showing payment QR for queue entry:", queueEntry);
 
     return (
       <Card className="p-6">
@@ -176,193 +161,135 @@ export default function PatientVerificationForm() {
           <div className="mb-4">
             <p className="text-lg font-medium">
               Queue Number: <span className="text-primary">
-                {String(registrationData?.queueEntry?.queueNumber || selectedPatient?.queueEntry?.queueNumber).padStart(3, '0')}
+                {String(queueEntry.queueNumber).padStart(3, '0')}
               </span>
             </p>
             <p className="text-sm text-muted-foreground">
               {getTranslation('paymentDescription', language)}
             </p>
           </div>
-          <PaymentQR queueId={queueId} />
+          <PaymentQR queueId={queueEntry.id} />
         </CardContent>
       </Card>
     );
   }
 
   // Show patient selection if multiple patients found
-  if (foundPatients.length > 0) {
+  if (foundPatients.length > 0 && !isNewPatient) {
+    console.log("Showing patient selection UI");
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl font-semibold">Select Patient</CardTitle>
+          <CardTitle>Select Patient</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Multiple patients found with this mobile number. Please select the patient:
-          </p>
-          <div className="grid gap-3">
-            {foundPatients.map((patient) => (
-              <Button
-                key={patient.id}
-                variant="outline"
-                className="w-full justify-start h-auto py-4 px-4"
-                onClick={() => {
-                  console.log("Selected patient:", patient);
-                  setSelectedPatient(patient);
-                  setFoundPatients([]);
-                }}
-              >
-                <User className="mr-2 h-4 w-4" />
-                <div className="text-left">
-                  <div className="font-medium">{patient.fullName}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {patient.email || 'No email provided'}
-                  </div>
+          {foundPatients.map((patient) => (
+            <Button
+              key={patient.id}
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                console.log("Selected patient:", patient);
+                setSelectedPatient(patient);
+                setFoundPatients([]);
+              }}
+            >
+              <User className="mr-2 h-4 w-4" />
+              <div className="text-left">
+                <div>{patient.fullName}</div>
+                <div className="text-sm text-muted-foreground">
+                  {patient.mobile}
                 </div>
-              </Button>
-            ))}
-          </div>
+              </div>
+            </Button>
+          ))}
         </CardContent>
       </Card>
     );
   }
 
-  // Show verification form if not registering new patient
-  if (!isNewPatient) {
+  // Show registration form for new patient
+  if (isNewPatient) {
+    console.log("Showing registration form");
     return (
-      <Form {...verificationForm}>
-        <form onSubmit={verificationForm.handleSubmit(handleVerification)} className="space-y-6">
+      <Form {...registrationForm}>
+        <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
           <FormField
-            control={verificationForm.control}
-            name="mobile"
+            control={registrationForm.control}
+            name="fullName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-baseline gap-2">
-                  <span>Mobile Number</span>
-                  {language !== "en" && (
-                    <span className="text-muted-foreground">
-                      ({getTranslation("mobile", language)})
-                    </span>
-                  )}
-                </FormLabel>
+                <FormLabel>Full Name</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder={getTranslation("mobilePlaceholder", language)}
-                    {...field}
-                  />
+                  <Input {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isVerifying}>
-            {isVerifying ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Verifying...
-              </>
-            ) : (
-              "Verify & Proceed"
+
+          <FormField
+            control={registrationForm.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email (Optional)</FormLabel>
+                <FormControl>
+                  <Input type="email" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
+          />
+
+          <FormField
+            control={registrationForm.control}
+            name="mobile"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Mobile Number</FormLabel>
+                <FormControl>
+                  <Input {...field} readOnly />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" className="w-full">
+            Register
           </Button>
         </form>
       </Form>
     );
   }
 
-  // Show registration form for new patient
+  // Show verification form (default view)
+  console.log("Showing verification form");
   return (
-    <Form {...registrationForm}>
-      <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
+    <Form {...verificationForm}>
+      <form onSubmit={verificationForm.handleSubmit(handleVerification)} className="space-y-6">
         <FormField
-          control={registrationForm.control}
-          name="fullName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="flex items-baseline gap-2">
-                <span>Full Name</span>
-                {language !== "en" && (
-                  <span className="text-muted-foreground">
-                    ({getTranslation("fullName", language)})
-                  </span>
-                )}
-              </FormLabel>
-              <FormControl>
-                <Input
-                  placeholder={getTranslation("fullNamePlaceholder", language)}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={registrationForm.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="flex items-baseline gap-2">
-                <span>Email (Optional)</span>
-                {language !== "en" && (
-                  <span className="text-muted-foreground">
-                    ({getTranslation("email", language)})
-                  </span>
-                )}
-              </FormLabel>
-              <FormControl>
-                <Input
-                  type="email"
-                  placeholder={getTranslation("emailPlaceholder", language)}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={registrationForm.control}
+          control={verificationForm.control}
           name="mobile"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="flex items-baseline gap-2">
-                <span>Mobile Number</span>
-                {language !== "en" && (
-                  <span className="text-muted-foreground">
-                    ({getTranslation("mobile", language)})
-                  </span>
-                )}
-              </FormLabel>
+              <FormLabel>Mobile Number</FormLabel>
               <FormControl>
-                <Input
-                  placeholder={getTranslation("mobilePlaceholder", language)}
-                  {...field}
-                  disabled
-                />
+                <Input {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        <Button type="submit" className="w-full">
-          {registrationForm.formState.isSubmitting ? (
+        <Button type="submit" className="w-full" disabled={isVerifying}>
+          {isVerifying ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {getTranslation("registering", language)}
+              Verifying...
             </>
           ) : (
-            <span className="flex items-center gap-2">
-              <span>Register</span>
-              {language !== "en" && (
-                <span className="text-sm">
-                  ({getTranslation("register", language)})
-                </span>
-              )}
-            </span>
+            "Verify & Proceed"
           )}
         </Button>
       </form>
