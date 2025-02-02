@@ -1,6 +1,6 @@
 import { pgTable, text, serial, integer, boolean, timestamp, date, jsonb, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { relations } from "drizzle-orm";
+import { relations, type InferSelectModel, type InferInsertModel } from "drizzle-orm";
 
 // Core user management
 export const users = pgTable("users", {
@@ -42,6 +42,18 @@ export const doctors = pgTable("doctors", {
   registrationNumber: text("registration_number").notNull(),
   availability: jsonb("availability"), // Store weekly schedule
   isVerified: boolean("is_verified").default(false),
+});
+
+// Doctor metrics for analytics
+export const doctorMetrics = pgTable("doctor_metrics", {
+  id: serial("id").primaryKey(),
+  doctorId: integer("doctor_id").references(() => doctors.id),
+  date: date("date").notNull(),
+  patientsCount: integer("patients_count").default(0),
+  newPatientsCount: integer("new_patients_count").default(0),
+  revenue: decimal("revenue", { precision: 10, scale: 2 }).default("0"),
+  prescriptionsCount: integer("prescriptions_count").default(0),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
 });
 
 // Clinic management
@@ -124,51 +136,45 @@ export const visitRecords = pgTable("visit_records", {
   visitedAt: timestamp("visited_at").defaultNow(),
 });
 
-// Pharmacy management
-export const pharmacies = pgTable("pharmacies", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  address: text("address").notNull(),
-  contactNumber: text("contact_number").notNull(),
-  email: text("email").notNull(),
-  isCloudCares: boolean("is_cloud_cares").default(false),
-  deliveryAvailable: boolean("delivery_available").default(true),
-  operatingHours: jsonb("operating_hours"),
-  isVerified: boolean("is_verified").default(false),
-});
+// Define base types using InferSelectModel and InferInsertModel
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
 
-// Prescription management
-export const prescriptions = pgTable("prescriptions", {
-  id: serial("id").primaryKey(),
-  visitRecordId: integer("visit_record_id").references(() => visitRecords.id),
-  patientId: integer("patient_id").references(() => patients.id),
-  doctorId: integer("doctor_id").references(() => doctors.id),
-  medications: jsonb("medications").notNull(), // Array of medication details
-  instructions: text("instructions"),
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date"),
-  isActive: boolean("is_active").default(true),
-  sharedWithPharmacy: boolean("shared_with_pharmacy").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+export type Patient = InferSelectModel<typeof patients>;
+export type NewPatient = InferInsertModel<typeof patients>;
 
-// Notification preferences
-export const notificationPreferences = pgTable("notification_preferences", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
-  email: boolean("email").default(true),
-  sms: boolean("sms").default(true),
-  queueUpdates: boolean("queue_updates").default(true),
-  appointmentReminders: boolean("appointment_reminders").default(true),
-  prescriptionUpdates: boolean("prescription_updates").default(true),
-  marketingUpdates: boolean("marketing_updates").default(false),
-});
+export type Doctor = InferSelectModel<typeof doctors>;
+export type NewDoctor = InferInsertModel<typeof doctors>;
+
+export type DoctorMetrics = InferSelectModel<typeof doctorMetrics>;
+export type NewDoctorMetrics = InferInsertModel<typeof doctorMetrics>;
+
+export type Clinic = InferSelectModel<typeof clinics>;
+export type NewClinic = InferInsertModel<typeof clinics>;
+
+export type DoctorClinicAssignment = InferSelectModel<typeof doctorClinicAssignments>;
+export type NewDoctorClinicAssignment = InferInsertModel<typeof doctorClinicAssignments>;
+
+export type QueueEntry = InferSelectModel<typeof queueEntries>;
+export type NewQueueEntry = InferInsertModel<typeof queueEntries>;
+
+export type Appointment = InferSelectModel<typeof appointments>;
+export type NewAppointment = InferInsertModel<typeof appointments>;
+
+export type VisitRecord = InferSelectModel<typeof visitRecords>;
+export type NewVisitRecord = InferInsertModel<typeof visitRecords>;
+
+// Export Select types used in components
+export type SelectPatient = Patient;
+export type SelectDoctor = Doctor;
+export type SelectDoctorMetrics = DoctorMetrics;
+export type SelectDoctorClinicAssignment = DoctorClinicAssignment;
+export type SelectClinic = Clinic;
 
 // Define relationships
 export const usersRelations = relations(users, ({ many }) => ({
   patients: many(patients),
   doctors: many(doctors),
-  notificationPreferences: many(notificationPreferences),
 }));
 
 export const patientsRelations = relations(patients, ({ one, many }) => ({
@@ -183,7 +189,6 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   queueEntries: many(queueEntries),
   appointments: many(appointments),
   visitRecords: many(visitRecords),
-  prescriptions: many(prescriptions),
 }));
 
 export const doctorsRelations = relations(doctors, ({ one, many }) => ({
@@ -195,7 +200,6 @@ export const doctorsRelations = relations(doctors, ({ one, many }) => ({
   queueEntries: many(queueEntries),
   appointments: many(appointments),
   visitRecords: many(visitRecords),
-  prescriptions: many(prescriptions),
 }));
 
 export const clinicsRelations = relations(clinics, ({ many }) => ({
@@ -205,14 +209,18 @@ export const clinicsRelations = relations(clinics, ({ many }) => ({
   visitRecords: many(visitRecords),
 }));
 
-// Add other necessary relations and schemas...
-
-// Create Zod schemas for all tables
+// Create Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
-// Add other schemas...
 
-// Export types
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-// Add other types...
+export const insertPatientSchema = createInsertSchema(patients);
+export const selectPatientSchema = createSelectSchema(patients);
+
+export const insertDoctorSchema = createInsertSchema(doctors);
+export const selectDoctorSchema = createSelectSchema(doctors);
+
+export const insertClinicSchema = createInsertSchema(clinics);
+export const selectClinicSchema = createSelectSchema(clinics);
+
+export const insertQueueEntrySchema = createInsertSchema(queueEntries);
+export const selectQueueEntrySchema = createSelectSchema(queueEntries);
