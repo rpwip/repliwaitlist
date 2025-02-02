@@ -108,15 +108,13 @@ export function useQueue() {
 
   const clinicsQuery = useQuery<Clinic[]>({
     queryKey: ["/api/clinics"],
-    staleTime: 1000 * 60 * 5,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 30000),
+    retry: false,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    staleTime: 0,
+    gcTime: 0,
   });
-
-  console.log('Current clinics data:', clinicsQuery.data);
-  console.log('Clinics loading state:', clinicsQuery.isLoading);
-  console.log('Clinics error state:', clinicsQuery.isError);
-  if (clinicsQuery.error) console.error('Clinics error:', clinicsQuery.error);
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ queueId, status }: { queueId: number; status: string }) => {
