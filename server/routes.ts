@@ -131,27 +131,53 @@ export function registerRoutes(app: Express): Server {
   const wss = setupWebSocketServer(httpServer);
 
   // Patient Portal API endpoints
-  app.post("/api/patient/verify", async (req, res) => {
-    const { mobile } = req.body;
+  app.get("/api/patient/profile", async (req, res) => {
+    const { mobile } = req.query;
     if (!mobile) {
       return res.status(400).send("Mobile number is required");
     }
 
     try {
+      // Clean the mobile number
+      const cleanMobile = mobile.toString().replace(/[^\d+]/g, '');
+      console.log('Searching for patient with mobile:', cleanMobile);
+
       const patient = await db
         .select()
         .from(patients)
-        .where(eq(patients.mobile, mobile))
+        .where(eq(patients.mobile, cleanMobile))
         .limit(1);
 
       if (!patient || patient.length === 0) {
+        console.log('No patient found with mobile:', cleanMobile);
         return res.status(404).json({ message: "Patient not found" });
       }
 
-      res.json(patient[0]);
+      // Get queue entry if exists
+      const [queueEntry] = await db
+        .select()
+        .from(queueEntries)
+        .where(
+          and(
+            eq(queueEntries.patientId, patient[0].id),
+            or(
+              eq(queueEntries.status, "waiting"),
+              eq(queueEntries.status, "in-progress")
+            )
+          )
+        )
+        .limit(1);
+
+      const response = {
+        ...patient[0],
+        queueEntry
+      };
+
+      console.log('Found patient:', response);
+      res.json(response);
     } catch (error) {
-      console.error("Error verifying patient:", error);
-      res.status(500).send("Error verifying patient");
+      console.error('Error fetching patient profile:', error);
+      res.status(500).send("Failed to fetch patient profile");
     }
   });
 
