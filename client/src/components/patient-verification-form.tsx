@@ -21,7 +21,6 @@ import PaymentQR from "./payment-qr";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
 
-// Define a local schema for the form
 const patientFormSchema = z.object({
   fullName: z.string().min(1, "Name is required"),
   email: z.string().email().optional().or(z.literal("")),
@@ -45,7 +44,7 @@ export default function PatientVerificationForm() {
   const { verifyPatient, isVerifying } = usePatient();
   const { toast } = useToast();
   const { language } = useLanguage();
-  const [registrationData, setRegistrationData] = useState<any>(null);
+  const [registrationData, setRegistrationData] = useState<PatientData | null>(null);
   const [isNewPatient, setIsNewPatient] = useState(false);
   const [foundPatients, setFoundPatients] = useState<PatientData[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
@@ -92,6 +91,7 @@ export default function PatientVerificationForm() {
 
   const handleRegistration = async (data: PatientFormData) => {
     try {
+      console.log("Submitting registration with data:", data);
       const payload = {
         fullName: data.fullName,
         email: data.email || null,
@@ -99,13 +99,15 @@ export default function PatientVerificationForm() {
       };
 
       const result = await registerPatient(payload);
+      console.log("Registration result:", result);
       setRegistrationData(result);
+
       toast({
         title: "Registration successful",
         description: "Please proceed with the payment to secure your spot.",
       });
     } catch (error: any) {
-      console.error(error);
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
         description: error.message || "Please try again",
@@ -114,7 +116,7 @@ export default function PatientVerificationForm() {
     }
   };
 
-  if (registrationData?.queueEntry || (selectedPatient && !foundPatients.length)) {
+  if (registrationData?.queueEntry || (selectedPatient && selectedPatient.queueEntry)) {
     return (
       <Card className="p-6">
         <PaymentQR
