@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ import type {
 } from "@db/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { PatientHistoryModal } from "@/components/PatientHistoryModal";
+import { NewVisitRecordModal } from "@/components/NewVisitRecordModal";
 import {
   Select,
   SelectContent,
@@ -132,6 +133,8 @@ export default function DoctorPortal() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
+  const [showNewVisitModal, setShowNewVisitModal] = useState(false);
+  const [currentQueueEntry, setCurrentQueueEntry] = useState<any>(null);
 
   useEffect(() => {
     if (!user) {
@@ -208,79 +211,82 @@ export default function DoctorPortal() {
     enabled: view === "patients" && !!user?.id,
   });
 
-  const queueEntries = [
-    {
-        id: 1,
-        queueNumber: 1,
-        patient: {
-            id: 1,
-            fullName: 'Patient One',
-        },
-        estimatedWaitTime: 15,
-        visitReason: 'Checkup',
-        vitals: { bp: '120/80', temperature: '37.0' },
-        completedAt: new Date()
+  const { data: queueData, refetch: refetchQueue } = useQuery({
+    queryKey: ["/api/queue", selectedClinicId],
+    queryFn: async () => {
+      if (!selectedClinicId) return null;
+      const response = await fetch(`/api/queue/${selectedClinicId}`);
+      if (!response.ok) throw new Error("Failed to fetch queue");
+      return response.json();
     },
-    {
-        id: 2,
-        queueNumber: 2,
-        patient: {
-            id: 2,
-            fullName: 'Patient Two',
-        },
-        estimatedWaitTime: 30,
-        visitReason: 'Fever',
-        vitals: { bp: '130/85', temperature: '38.5' },
-        completedAt: new Date()
+    enabled: !!selectedClinicId,
+  });
+
+  const { data: completedPatients, refetch: refetchCompleted } = useQuery({
+    queryKey: ["/api/queue/completed", selectedClinicId],
+    queryFn: async () => {
+      if (!selectedClinicId) return null;
+      const response = await fetch(`/api/queue/${selectedClinicId}/completed`);
+      if (!response.ok) throw new Error("Failed to fetch completed patients");
+      return response.json();
     },
-    {
-      id: 3,
-        queueNumber: 3,
-        patient: {
-            id: 3,
-            fullName: 'Patient Three',
-        },
-        estimatedWaitTime: 20,
-        visitReason: 'Pain',
-         vitals: { bp: '110/70', temperature: '37.2' },
-        completedAt: new Date()
-    }
-  ]
+    enabled: !!selectedClinicId,
+  });
 
-   const completedPatients = [
-    {
-      id: 4,
-      queueNumber: 4,
-      fullName: 'Patient Four',
-      completedAt: new Date()
+
+  const startConsultation = useMutation({
+    mutationFn: async (queueId: number) => {
+      const response = await fetch(`/api/queue/${queueId}/start`, { method: "POST" });
+      if (!response.ok) throw new Error("Failed to start consultation");
+      return response.json();
     },
-     {
-      id: 5,
-      queueNumber: 5,
-      fullName: 'Patient Five',
-        completedAt: new Date()
-    }
-   ]
+    onSuccess: () => {
+      refetchQueue();
+      refetchCompleted();
+    },
+  });
 
-   const currentPatient = queueEntries[0];
+  const skipPatient = useMutation({
+    mutationFn: async (queueId: number) => {
+      const response = await fetch(`/api/queue/${queueId}/skip`, { method: "POST" });
+      if (!response.ok) throw new Error("Failed to skip patient");
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchQueue();
+    },
+  });
 
+  const completeConsultation = useMutation({
+    mutationFn: async (queueId: number) => {
+      const response = await fetch(`/api/queue/${queueId}/complete`, { method: "POST" });
+      if (!response.ok) throw new Error("Failed to complete consultation");
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchQueue();
+      refetchCompleted();
+      setCurrentQueueEntry(null);
+    },
+  });
 
-    const handleStartConsultation = (id: number) => {
-     console.log(`Start consultation for ${id}`)
-   }
-
-  const handleSkipPatient = (id: number) => {
-    console.log(`Skip Patient ${id}`);
+   const handleStartConsultation = (entry: any) => {
+    setCurrentQueueEntry(entry);
+    startConsultation.mutate(entry.id);
   };
 
-  const handleCompleteConsultation = (id: number) => {
-      console.log(`Complete Patient ${id}`);
+  const handleSkipPatient = (queueId: number) => {
+    skipPatient.mutate(queueId);
   };
 
-  const handlePauseQueue = () => {
-    console.log('Pause Queue')
-  }
+  const handleCompleteConsultation = (queueId: number) => {
+    completeConsultation.mutate(queueId);
+  };
 
+    const handleNewVisit = (entry: any) => {
+    setCurrentQueueEntry(entry);
+    setShowNewVisitModal(true);
+  };
 
   if (isLoading) {
     return (
@@ -641,7 +647,7 @@ export default function DoctorPortal() {
             ))}
           </SelectContent>
         </Select>
-        <span className="text-lg font-medium">{formattedDate}</span>
+        <span className="text-lg font-medium">{format(new Date(), "EEEE, dd MMMM yyyy")}</span>
       </div>
 
       {/* Queue and Patient Details Grid */}
@@ -652,7 +658,7 @@ export default function DoctorPortal() {
             <CardTitle>Current Queue</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {queueEntries?.map((entry) => (
+            {queueData?.map((entry: any) => (
               <div
                 key={entry.id}
                 className="flex items-center justify-between p-4 border rounded-lg"
@@ -662,17 +668,21 @@ export default function DoctorPortal() {
                     <UserRound className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">#{entry.queueNumber} - {entry.patient.fullName}</p>
-                    <p className="text-sm text-muted-foreground">Waiting time: {entry.estimatedWaitTime}min</p>
+                    <p className="font-medium">
+                      #{entry.queueNumber} - {entry.patient.fullName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Waiting time: {entry.estimatedWaitTime}min
+                    </p>
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <Button 
+                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => handleStartConsultation(entry.id)}
+                    onClick={() => handleStartConsultation(entry)}
                   >
-                    Start
+                    See Next
                   </Button>
                   <Button 
                     variant="outline" 
@@ -693,47 +703,57 @@ export default function DoctorPortal() {
             <CardTitle>Patient Details</CardTitle>
           </CardHeader>
           <CardContent>
-            {currentPatient ? (
+            {currentQueueEntry ? (
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                     <UserRound className="h-8 w-8 text-primary" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium">{currentPatient.fullName}</h3>
-                    <p className="text-sm text-muted-foreground">Queue #{currentPatient.queueNumber}</p>
+                    <h3 className="text-lg font-medium">{currentQueueEntry.patient.fullName}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Queue #{currentQueueEntry.queueNumber}
+                    </p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-medium">Reason for Visit</h4>
-                  <p>{currentPatient.visitReason || 'Not specified'}</p>
+                  <p>{currentQueueEntry.visitReason || 'Not specified'}</p>
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-medium">Vital Signs</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Blood Pressure</p>
-                      <p>{currentPatient.vitals?.bp || 'N/A'}</p>
+                      <p>{currentQueueEntry.vitals?.bp || 'N/A'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Temperature</p>
-                      <p>{currentPatient.vitals?.temperature || 'N/A'}</p>
+                      <p>{currentQueueEntry.vitals?.temperature || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Pulse</p>
+                      <p>{currentQueueEntry.vitals?.pulse || 'N/A'} bpm</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">SpO2</p>
+                      <p>{currentQueueEntry.vitals?.spo2 || 'N/A'}%</p>
                     </div>
                   </div>
                 </div>
                 <div className="flex space-x-2 mt-4">
-                  <Button 
+                 <Button 
                     className="flex-1"
-                    onClick={() => handleCompleteConsultation(currentPatient.id)}
+                    onClick={() => handleNewVisit(currentQueueEntry)}
                   >
-                    Complete
+                    Start Consult
                   </Button>
                   <Button 
                     variant="outline" 
                     className="flex-1"
-                    onClick={() => handlePauseQueue()}
+                    onClick={() => handleCompleteConsultation(currentQueueEntry.id)}
                   >
-                    Pause Queue
+                    Complete
                   </Button>
                 </div>
               </div>
@@ -753,7 +773,7 @@ export default function DoctorPortal() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {completedPatients?.map((patient) => (
+            {completedPatients?.map((patient: any) => (
               <div
                 key={patient.id}
                 className="flex items-center justify-between p-4 border rounded-lg"
@@ -763,7 +783,7 @@ export default function DoctorPortal() {
                     <UserRound className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">#{patient.queueNumber} - {patient.fullName}</p>
+                    <p className="font-medium">#{patient.queueNumber} - {patient.patient.fullName}</p>
                     <p className="text-sm text-muted-foreground">
                       Seen at: {format(new Date(patient.completedAt), 'HH:mm')}
                     </p>
@@ -772,7 +792,7 @@ export default function DoctorPortal() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setSelectedPatientId(patient.id)}
+                  onClick={() => setSelectedPatientId(patient.patientId)}
                 >
                   View History
                 </Button>
@@ -781,6 +801,28 @@ export default function DoctorPortal() {
           </div>
         </CardContent>
       </Card>
+
+         {/* Patient History Modal */}
+      {selectedPatientId && (
+        <PatientHistoryModal
+          open={!!selectedPatientId}
+          onClose={() => setSelectedPatientId(null)}
+          patientId={selectedPatientId}
+        />
+      )}
+
+       {/* New Visit Record Modal */}
+      {showNewVisitModal && currentQueueEntry && (
+        <NewVisitRecordModal
+          open={showNewVisitModal}
+          onClose={() => setShowNewVisitModal(false)}
+          patientId={currentQueueEntry.patientId}
+          doctorId={user?.id || 0}
+          clinicId={selectedClinicId || 0}
+          vitals={currentQueueEntry.vitals}
+          visitReason={currentQueueEntry.visitReason}
+        />
+      )}
     </div>
   );
 
@@ -905,7 +947,7 @@ export default function DoctorPortal() {
                       <span className="text-muted-foreground">Active Prescriptions:</span>
                       <span className="font-medium">{data.activePresc}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
+                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Contact:</span>
                       <span className="font-medium">{data.patient.mobile}</span>
                     </div>
