@@ -5,7 +5,6 @@ import type { SelectPatient } from "@db/schema";
 
 type PatientIdentifier = {
   mobile: string;
-  email?: string;
 };
 
 type AppointmentData = {
@@ -21,18 +20,39 @@ export function usePatient() {
 
   const verifyPatientMutation = useMutation({
     mutationFn: async (identifier: PatientIdentifier) => {
-      const res = await apiRequest(
-        "GET",
-        `/api/patient/profile?mobile=${encodeURIComponent(identifier.mobile)}`,
-      );
-      return res.json() as Promise<SelectPatient>;
+      console.log('Verifying patient:', identifier);
+      try {
+        // Clean the mobile number before sending
+        const cleanMobile = identifier.mobile.replace(/[^\d+]/g, '');
+        const res = await apiRequest(
+          "GET",
+          `/api/patient/profile?mobile=${encodeURIComponent(cleanMobile)}`,
+        );
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error("Patient not found");
+          }
+          const errorText = await res.text();
+          throw new Error(errorText || "Failed to verify patient");
+        }
+
+        const data = await res.json();
+        console.log('Patient verification response:', data);
+        return data;
+      } catch (error) {
+        console.error('Patient verification error:', error);
+        throw error;
+      }
     },
     onError: (error: Error) => {
-      toast({
-        title: "Verification failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (error.message !== "Patient not found") {
+        toast({
+          title: "Verification failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     },
   });
 
