@@ -4,7 +4,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { SelectPatient } from "@db/schema";
 
 type PatientIdentifier = {
-  mobile: string;
+  mobile?: string;
+  patientId?: number;
 };
 
 type AppointmentData = {
@@ -22,11 +23,18 @@ export function usePatient() {
     mutationFn: async (identifier: PatientIdentifier) => {
       console.log('Starting patient verification for:', identifier);
       try {
-        // Clean the mobile number before sending
-        const cleanMobile = identifier.mobile.replace(/[^\d+]/g, '');
-        console.log('Cleaned mobile number:', cleanMobile);
+        let queryParam = '';
+        if (identifier.mobile) {
+          // Clean the mobile number before sending
+          const cleanMobile = identifier.mobile.replace(/[^\d+]/g, '');
+          queryParam = `mobile=${encodeURIComponent(cleanMobile)}`;
+        } else if (identifier.patientId) {
+          queryParam = `patientId=${identifier.patientId}`;
+        } else {
+          throw new Error("Either mobile or patientId must be provided");
+        }
 
-        const res = await fetch(`/api/patient/profile?mobile=${encodeURIComponent(cleanMobile)}`);
+        const res = await fetch(`/api/patient/profile?${queryParam}`);
         console.log('API response status:', res.status);
 
         if (res.status === 404) {

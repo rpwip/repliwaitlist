@@ -39,6 +39,7 @@ import type {
   SelectVisitRecord,
   SelectQueueEntry
 } from "@db/schema";
+import { usePatient } from "@/hooks/use-patient";
 
 type PatientPreferences = {
   preferredPharmacy: {
@@ -95,22 +96,31 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 export default function PatientPortal() {
   const [activeTab, setActiveTab] = useState("overview");
   const { id } = useParams();
+  const { verifyPatient } = usePatient();
 
-  const { data: patientData, isLoading: isLoadingPatient } = useQuery<PatientResponse>({
+  const { data: patientData, isLoading: isLoadingPatient } = useQuery({
     queryKey: ["/api/patient/profile", id],
     queryFn: async () => {
-      const response = await fetch(`/api/patient/profile?id=${id}`);
-      if (!response.ok) throw new Error("Failed to fetch patient data");
-      return response.json();
+      try {
+        if (!id) throw new Error("Patient ID is required");
+        const data = await verifyPatient({ patientId: parseInt(id) });
+        if (!data) throw new Error("Patient not found");
+        return data;
+      } catch (error) {
+        console.error('Error fetching patient:', error);
+        throw error;
+      }
     }
   });
 
   const { data: appointments, isLoading: isLoadingAppointments } = useQuery<SelectAppointment[]>({
     queryKey: ["/api/patient/appointments", id],
     queryFn: async () => {
-      const response = await fetch(`/api/patient/appointments?patientId=${id}`);
-      if (!response.ok) throw new Error("Failed to fetch appointments");
-      return response.json();
+      const res = await fetch(`/api/patient/appointments?patientId=${id}`);
+      if (!res.ok) {
+        throw new Error("Failed to fetch appointments");
+      }
+      return res.json();
     }
   });
 
@@ -205,8 +215,17 @@ export default function PatientPortal() {
 
   if (!patientData) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Patient not found</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-[400px]">
+          <CardHeader>
+            <CardTitle className="text-center">Patient Not Found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-muted-foreground">
+              The requested patient profile could not be found. Please check the ID and try again.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -851,8 +870,7 @@ export default function PatientPortal() {
                                   order.status === 'ready_for_pickup' ? 'bg-green-100 text-green-800' :
                                     order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                                     'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {(order.status || '').replace('_', ' ')}
+                                }`}>                                  {(order.status || '').replace('_', ' ')}
                                 </span>
                               </td>
                               <td className="p-3">
