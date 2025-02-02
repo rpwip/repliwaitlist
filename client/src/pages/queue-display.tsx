@@ -36,14 +36,24 @@ export default function QueueDisplay() {
     // Get clinicId from URL parameters
     const params = new URLSearchParams(window.location.search);
     const clinicIdParam = params.get('clinicId');
+    console.log('URL clinic ID:', clinicIdParam);
 
     if (clinicIdParam) {
-      setSelectedClinicId(parseInt(clinicIdParam));
+      const parsedId = parseInt(clinicIdParam);
+      console.log('Setting selected clinic ID to:', parsedId);
+      setSelectedClinicId(parsedId);
     } else if (clinics && Array.isArray(clinics) && clinics.length > 0 && !selectedClinicId) {
       const yazhHealthcare = clinics.find(clinic => clinic.name === "Yazh Health Care");
-      setSelectedClinicId(yazhHealthcare?.id || clinics[0].id);
+      const defaultId = yazhHealthcare?.id || clinics[0].id;
+      console.log('Setting default clinic ID to:', defaultId);
+      setSelectedClinicId(defaultId);
     }
   }, [clinics, selectedClinicId]);
+
+  useEffect(() => {
+    console.log('Current queue data:', typedQueue);
+    console.log('Selected clinic ID:', selectedClinicId);
+  }, [typedQueue, selectedClinicId]);
 
   if (isError) {
     return (
@@ -67,12 +77,21 @@ export default function QueueDisplay() {
   }
 
   // Filter queue based on selected clinic
-  const filteredQueue = typedQueue.filter((q) => q.clinicId === selectedClinicId);
+  const filteredQueue = typedQueue.filter((q) => {
+    const matches = q.clinicId === selectedClinicId;
+    console.log(`Queue entry ${q.queueNumber} - clinic ${q.clinicId} matches selected ${selectedClinicId}: ${matches}`);
+    return matches;
+  });
+
+  console.log('Filtered queue:', filteredQueue);
 
   const currentPatient = filteredQueue.find((q) => q.status === "in-progress");
   const waitingPatients = filteredQueue
     .filter((q) => q.status === "waiting")
     .sort((a, b) => a.queueNumber - b.queueNumber);
+
+  console.log('Current patient:', currentPatient);
+  console.log('Waiting patients:', waitingPatients);
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -85,7 +104,10 @@ export default function QueueDisplay() {
         <div className="flex items-center justify-between mb-8">
           <Select
             value={selectedClinicId?.toString()}
-            onValueChange={(value) => setSelectedClinicId(parseInt(value))}
+            onValueChange={(value) => {
+              console.log('Clinic selection changed to:', value);
+              setSelectedClinicId(parseInt(value));
+            }}
           >
             <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Select clinic" />

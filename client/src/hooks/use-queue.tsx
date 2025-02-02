@@ -7,6 +7,7 @@ type RegistrationData = {
   fullName: string;
   email: string | null;
   mobile: string;
+  clinicId: number;
 };
 
 export function useQueue() {
@@ -32,6 +33,7 @@ export function useQueue() {
           try {
             const data = JSON.parse(event.data);
             if (data.type === "QUEUE_UPDATE") {
+              console.log('Received queue update, invalidating query');
               queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
             }
           } catch (error) {
@@ -69,11 +71,23 @@ export function useQueue() {
 
   const queueQuery = useQuery({
     queryKey: ["/api/queue"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/queue");
+      const data = await res.json();
+      console.log('Queue data fetched:', data);
+      return data;
+    },
     refetchInterval: isConnected ? false : 5000,
   });
 
   const clinicsQuery = useQuery({
-    queryKey: ["/api/clinics"]
+    queryKey: ["/api/clinics"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/clinics");
+      const data = await res.json();
+      console.log('Clinics data fetched:', data);
+      return data;
+    }
   });
 
   const registerPatientMutation = useMutation({
@@ -107,7 +121,6 @@ export function useQueue() {
     }
   });
 
-  // Add payment verification mutation
   const verifyPaymentMutation = useMutation({
     mutationFn: async ({ queueId, transactionRef }: { queueId: number, transactionRef: string }) => {
       const res = await apiRequest(
@@ -118,7 +131,6 @@ export function useQueue() {
     }
   });
 
-  // Add payment confirmation mutation
   const confirmPaymentMutation = useMutation({
     mutationFn: async (queueId: number) => {
       const res = await apiRequest("POST", `/api/confirm-payment/${queueId}`);
