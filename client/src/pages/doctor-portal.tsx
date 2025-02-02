@@ -621,7 +621,7 @@ export default function DoctorPortal() {
             )
             .map((data) => (
               <Card 
-                key={data.patient.id} 
+                key={`patient-${data.patient.id}`}
                 className="hover:bg-accent/50 transition-colors cursor-pointer"
                 onClick={() => setSelectedPatientId(data.patient.id)}
               >
@@ -777,7 +777,7 @@ export default function DoctorPortal() {
                 <div className="space-y-4">
                   {dashboardData?.recentPatients?.map((patient) => (
                     <div
-                      key={patient.id}
+                      key={`recent-${patient.id}`}
                       className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
                     >
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">

@@ -69,6 +69,14 @@ interface PatientHistoryModalProps {
 export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalProps) {
   const { data: history, isLoading } = useQuery<PatientHistory>({
     queryKey: ["/api/doctor/patient-history", patientId],
+    queryFn: async () => {
+      if (!patientId) throw new Error("No patient ID provided");
+      const response = await fetch(`/api/doctor/patient-history/${patientId}`, {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch patient history");
+      return response.json();
+    },
     enabled: !!patientId,
   });
 
