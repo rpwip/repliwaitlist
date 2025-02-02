@@ -24,11 +24,6 @@ type QueueEntryWithWaitTime = {
   clinicId: number;
 };
 
-type Clinic = {
-  id: number;
-  name: string;
-};
-
 export default function QueueDisplay() {
   const [selectedClinicId, setSelectedClinicId] = useState<number>(15);
   const { queue, isLoading, clinics } = useQueue();
@@ -72,7 +67,7 @@ export default function QueueDisplay() {
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {Array.isArray(clinics) && clinics.map((clinic: Clinic) => (
+              {clinics?.map((clinic) => (
                 <SelectItem
                   key={clinic.id}
                   value={clinic.id.toString()}

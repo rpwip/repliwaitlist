@@ -3,6 +3,14 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+type Clinic = {
+  id: number;
+  name: string;
+  address: string;
+  contact_number: string;
+  type: string;
+};
+
 export function useQueue() {
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
@@ -96,12 +104,12 @@ export function useQueue() {
 
   const queueQuery = useQuery<any[]>({
     queryKey: ["/api/queue"],
-    refetchInterval: isConnected ? false : 5000, // Poll every 5 seconds when WebSocket is down
+    refetchInterval: isConnected ? false : 5000,
   });
 
-  const clinicsQuery = useQuery<any[]>({
+  const clinicsQuery = useQuery<Clinic[]>({
     queryKey: ["/api/clinics"],
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 5,
     refetchOnMount: true,
     retry: 3,
     onSuccess: (data) => {
@@ -109,6 +117,11 @@ export function useQueue() {
     },
     onError: (error) => {
       console.error('Error fetching clinics:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load clinics. Please try again.",
+        variant: "destructive",
+      });
     }
   });
 
