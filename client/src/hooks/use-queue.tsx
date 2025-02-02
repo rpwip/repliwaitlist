@@ -20,7 +20,8 @@ export function useQueue() {
 
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+        const host = window.location.host;
+        const ws = new WebSocket(`${protocol}//${host}/ws`);
 
         ws.onopen = () => {
           console.log('WebSocket connected');
@@ -48,6 +49,9 @@ export function useQueue() {
         ws.onerror = (error) => {
           console.error('WebSocket error:', error);
           setIsConnected(false);
+          // Invalidate queries to trigger polling
+          queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
         };
 
         ws.onclose = () => {
@@ -63,9 +67,9 @@ export function useQueue() {
           } else {
             console.log('Max reconnection attempts reached');
             toast({
-              title: "Connection Lost",
-              description: "Unable to maintain real-time connection. Please refresh the page.",
-              variant: "destructive"
+              title: "Connection Status",
+              description: "Using offline mode. Data will update periodically.",
+              variant: "default"
             });
           }
         };
@@ -92,12 +96,14 @@ export function useQueue() {
 
   const queueQuery = useQuery<any[]>({
     queryKey: ["/api/queue"],
-    refetchInterval: isConnected ? false : 30000, // Only poll if WebSocket is disconnected
+    refetchInterval: isConnected ? false : 5000, // Poll every 5 seconds when WebSocket is down
   });
 
   const clinicsQuery = useQuery<any[]>({
     queryKey: ["/api/clinics"],
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    refetchOnMount: true,
+    retry: 3,
   });
 
   const updateStatusMutation = useMutation({
