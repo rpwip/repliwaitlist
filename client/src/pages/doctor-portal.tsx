@@ -362,7 +362,7 @@ export default function DoctorPortal() {
         clinicId: entry.clinicId
       });
 
-      if (!entry.patient?.id) {
+      if (!entry.patientId && !entry.patient?.id) {
         console.error("Patient ID missing from queue entry:", entry);
         toast({
           title: "Error",
@@ -372,9 +372,11 @@ export default function DoctorPortal() {
         return;
       }
 
+      const patientId = entry.patientId || entry.patient?.id;
+      
       // Update state for modal
-      console.log("Setting selected patient ID:", entry.patient.id);
-      setSelectedPatientId(entry.patient.id);
+      console.log("Setting selected patient ID:", patientId);
+      setSelectedPatientId(patientId);
       setCurrentQueueEntry(entry);
       setShowNewVisitModal(true);
 
