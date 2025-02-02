@@ -13,27 +13,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { User } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueue } from "@/hooks/use-queue";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
 import PaymentQR from "./payment-qr";
 import { useToast } from "@/hooks/use-toast";
 
+type Patient = {
+  id: number;
+  fullName: string;
+  mobile: string;
+  email?: string | null;
+};
+
+type Clinic = {
+  id: number;
+  name: string;
+  address: string;
+};
+
 interface PatientSelectionProps {
-  patients: Array<{
-    id: number;
-    fullName: string;
-    mobile: string;
-  }>;
+  patients: Patient[];
   onBack: () => void;
 }
 
 export default function PatientSelection({ patients, onBack }: PatientSelectionProps) {
-  const { clinics } = useQueue();
+  const { clinics, registerPatient } = useQueue();
   const { language } = useLanguage();
   const { toast } = useToast();
-  const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedClinic, setSelectedClinic] = useState<string>("");
   const [queueEntry, setQueueEntry] = useState<any>(null);
 
@@ -47,7 +56,7 @@ export default function PatientSelection({ patients, onBack }: PatientSelectionP
     }
   }, [clinics]);
 
-  const handlePatientSelect = (patient: any) => {
+  const handlePatientSelect = (patient: Patient) => {
     setSelectedPatient(patient);
   };
 
@@ -62,25 +71,17 @@ export default function PatientSelection({ patients, onBack }: PatientSelectionP
     }
 
     try {
-      const response = await fetch("/api/register-patient", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fullName: selectedPatient.fullName,
-          email: selectedPatient.email,
-          mobile: selectedPatient.mobile,
-          clinicId: parseInt(selectedClinic),
-        }),
+      const result = await registerPatient({
+        fullName: selectedPatient!.fullName,
+        email: selectedPatient!.email,
+        mobile: selectedPatient!.mobile,
+        clinicId: parseInt(selectedClinic),
       });
-
-      if (!response.ok) {
-        throw new Error(await response.text());
-      }
-
-      const result = await response.json();
       setQueueEntry(result);
+      toast({
+        title: "Registration successful",
+        description: "Please proceed with the payment to secure your spot.",
+      });
     } catch (error) {
       console.error("Registration error:", error);
       toast({
@@ -95,8 +96,8 @@ export default function PatientSelection({ patients, onBack }: PatientSelectionP
     return (
       <PaymentQR 
         queueId={queueEntry.queueEntry.id}
-        patientName={selectedPatient.fullName}
-        clinicDetails={clinics.find(c => c.id === parseInt(selectedClinic))}
+        patientName={selectedPatient!.fullName}
+        clinicDetails={clinics.find((c: Clinic) => c.id === parseInt(selectedClinic)) as Clinic}
         queueNumber={queueEntry.queueEntry.queueNumber}
       />
     );
@@ -127,7 +128,7 @@ export default function PatientSelection({ patients, onBack }: PatientSelectionP
                 <SelectValue placeholder="Select a clinic" />
               </SelectTrigger>
               <SelectContent>
-                {clinics.map((clinic) => (
+                {Array.isArray(clinics) && clinics.map((clinic: Clinic) => (
                   <SelectItem key={clinic.id} value={clinic.id.toString()}>
                     {clinic.name}
                   </SelectItem>
