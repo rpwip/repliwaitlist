@@ -255,7 +255,21 @@ export default function DoctorPortal() {
       if (!selectedClinicId) return null;
       const response = await fetch(`/api/queue/${selectedClinicId}`);
       if (!response.ok) throw new Error("Failed to fetch queue");
-      return response.json();
+      const data = await response.json();
+      return data.map((entry: any) => ({
+        ...entry,
+        id: entry.id,
+        queueNumber: entry.queueNumber,
+        status: entry.status,
+        patient: {
+          id: entry.patientId,
+          fullName: entry.patient?.fullName || entry.fullName
+        },
+        clinicId: selectedClinicId,
+        estimatedWaitTime: entry.estimatedWaitTime || 0,
+        vitals: entry.vitals || null,
+        visitReason: entry.visitReason || null
+      }));
     },
     enabled: !!selectedClinicId,
   });
@@ -307,12 +321,35 @@ export default function DoctorPortal() {
       setCurrentQueueEntry(null);
     },
   });
+  
+  const handleNewVisit = (entry: QueueEntry) => {
+    if (!entry.patient?.id && !entry.patientId) {
+      toast({
+        title: "Error",
+        description: "Patient ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    setSelectedPatientId(entry.patient?.id || entry.patientId || 0);
+    setCurrentQueueEntry(entry);
+    setShowNewVisitModal(true);
+  };
+  
   const handleStartConsultation = (entry: QueueEntry) => {
     try {
       console.log("Starting consultation for:", entry);
+
+      if (!entry.patient?.id && !entry.patientId) {
+        toast({
+          title: "Error",
+          description: "Patient ID is missing",
+          variant: "destructive",
+        });
+        return;
+      }
   
-      // Format the entry data, ensuring all required fields are present
       const formattedEntry = {
         ...entry,
         patient: {
@@ -320,6 +357,7 @@ export default function DoctorPortal() {
           id: entry.patient?.id || entry.patientId || 0
         },
         patientId: entry.patient?.id || entry.patientId || 0,
+        clinicId: selectedClinicId,
         vitals: entry.vitals || {
           bp: 'N/A',
           temperature: 'N/A',
@@ -329,12 +367,12 @@ export default function DoctorPortal() {
         visitReason: entry.visitReason || 'Not specified'
       };
   
-      // Update state
+      // Update state for modal
       setCurrentQueueEntry(formattedEntry);
       setSelectedPatientId(formattedEntry.patientId);
       setShowNewVisitModal(true);
   
-      // Make the API call
+      // Make the API call to start consultation
       startConsultation.mutate(entry.id, {
         onSuccess: () => {
           console.log("Successfully started consultation");
@@ -362,6 +400,7 @@ export default function DoctorPortal() {
     }
   };
 
+
   const handleSkipPatient = (queueId: number) => {
     skipPatient.mutate(queueId);
   };
@@ -370,11 +409,6 @@ export default function DoctorPortal() {
     completeConsultation.mutate(queueId);
   };
 
-  const handleNewVisit = (entry: QueueEntry) => {
-    setSelectedPatientId(entry.patientId || 0);
-    setCurrentQueueEntry(entry);
-    setShowNewVisitModal(true);
-  };
 
   if (isLoading) {
     return (
