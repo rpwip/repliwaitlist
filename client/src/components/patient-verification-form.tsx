@@ -100,11 +100,10 @@ export default function PatientVerificationForm() {
       setSelectedPatient(null);
 
       // Initialize registration form with mobile number
-      const mobileNumber = data.mobile;
       registrationForm.reset({
         fullName: "",
         email: "",
-        mobile: mobileNumber,
+        mobile: data.mobile,
       });
 
       toast({
@@ -117,11 +116,6 @@ export default function PatientVerificationForm() {
   const handleRegistration = async (data: PatientFormData) => {
     console.log("Starting registration with data:", data);
     try {
-      // Ensure mobile number is set
-      if (!data.mobile) {
-        data.mobile = verificationForm.getValues().mobile;
-      }
-
       const payload = {
         fullName: data.fullName.trim(),
         email: data.email ? data.email.trim() : null,
@@ -260,7 +254,6 @@ export default function PatientVerificationForm() {
     );
   }
 
-  // Registration form for new patient
   return (
     <Form {...registrationForm}>
       <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
@@ -330,6 +323,7 @@ export default function PatientVerificationForm() {
                 <Input
                   placeholder={getTranslation("mobilePlaceholder", language)}
                   {...field}
+                  disabled
                 />
               </FormControl>
               <FormMessage />
