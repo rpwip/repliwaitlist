@@ -95,6 +95,11 @@ export function useQueue() {
     refetchInterval: isConnected ? false : 30000, // Only poll if WebSocket is disconnected
   });
 
+  const clinicsQuery = useQuery<any[]>({
+    queryKey: ["/api/clinics"],
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ queueId, status }: { queueId: number; status: string }) => {
       const res = await apiRequest("POST", `/api/queue/${queueId}/status`, { status });
@@ -125,8 +130,9 @@ export function useQueue() {
 
   return {
     queue: queueQuery.data ?? [],
-    isLoading: queueQuery.isLoading,
-    isError: queueQuery.isError,
+    clinics: clinicsQuery.data ?? [],
+    isLoading: queueQuery.isLoading || clinicsQuery.isLoading,
+    isError: queueQuery.isError || clinicsQuery.isError,
     isConnected,
     updateStatus: updateStatusMutation.mutate,
     registerPatient: registerPatientMutation.mutateAsync,

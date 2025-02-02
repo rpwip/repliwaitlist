@@ -44,8 +44,13 @@ export default function QueueDisplay() {
     );
   }
 
-  const currentPatient = typedQueue.find((q) => q.status === "in-progress");
-  const waitingPatients = typedQueue
+  // Filter queue based on selected clinic
+  const filteredQueue = selectedClinicId
+    ? typedQueue.filter((q) => q.clinicId === selectedClinicId)
+    : typedQueue;
+
+  const currentPatient = filteredQueue.find((q) => q.status === "in-progress");
+  const waitingPatients = filteredQueue
     .filter((q) => q.status === "waiting")
     .sort((a, b) => a.queueNumber - b.queueNumber);
 
@@ -60,8 +65,8 @@ export default function QueueDisplay() {
         {/* Clinic Selector and Date */}
         <div className="flex items-center justify-between mb-8">
           <Select
-            value={selectedClinicId?.toString()}
-            onValueChange={(value) => setSelectedClinicId(parseInt(value))}
+            value={selectedClinicId?.toString() ?? ""}
+            onValueChange={(value) => setSelectedClinicId(value ? parseInt(value) : null)}
           >
             <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Select clinic" />
