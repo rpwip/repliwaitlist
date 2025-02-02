@@ -50,6 +50,24 @@ export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
   // Add this endpoint right after setupAuth(app);
+    app.get("/api/clinics", async (_req, res) => {
+  try {
+    const results = await db
+      .select()
+      .from(clinics)
+      .orderBy(clinics.name);
+
+    console.log('Fetched clinics:', results);
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching clinics:', error);
+    res.status(500).json({
+      error: 'Failed to fetch clinics',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
+  }
+});
+  // Add this endpoint right after setupAuth(app);
   app.get("/api/patient/profile", async (req, res) => {
     const { mobile } = req.query;
     if (!mobile) {
@@ -904,7 +922,7 @@ export function registerRoutes(app: Express): Server {
         .limit(1);
 
       if (!doctor) {
-        return res.status(404).send("Doctor not found");
+        return res.status(400).send("Doctor not found");
       }
 
       // First get clinic assignments with basic info

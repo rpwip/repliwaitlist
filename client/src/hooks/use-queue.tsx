@@ -48,7 +48,6 @@ export function useQueue() {
         ws.onclose = () => {
           console.log('WebSocket disconnected');
           setIsConnected(false);
-          // Attempt to reconnect after 5 seconds
           setTimeout(connect, 5000);
         };
 
@@ -68,6 +67,53 @@ export function useQueue() {
       }
     };
   }, []);
+
+  const queueQuery = useQuery({
+    queryKey: ["/api/queue"],
+    queryFn: async () => {
+      try {
+        const res = await apiRequest("GET", "/api/queue");
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Queue fetch error:', errorText);
+          throw new Error('Failed to fetch queue data');
+        }
+        return res.json();
+      } catch (error) {
+        console.error('Error fetching queue:', error);
+        throw error;
+      }
+    },
+    retry: 1
+  });
+
+  const clinicsQuery = useQuery({
+    queryKey: ["/api/clinics"],
+    queryFn: async () => {
+      try {
+        const res = await apiRequest("GET", "/api/clinics");
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Clinics fetch error:', errorText);
+          throw new Error('Failed to fetch clinics data');
+        }
+        const data = await res.json();
+        console.log('Fetched clinics:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching clinics:', error);
+        throw error;
+      }
+    },
+    retry: 1,
+    onError: (error) => {
+      toast({
+        title: "Error fetching clinics",
+        description: error instanceof Error ? error.message : "Failed to load clinics",
+        variant: "destructive",
+      });
+    }
+  });
 
   const registerPatientMutation = useMutation({
     mutationFn: async (data: RegistrationData) => {
@@ -103,6 +149,10 @@ export function useQueue() {
   });
 
   return {
+    queue: queueQuery.data ?? [],
+    clinics: clinicsQuery.data ?? [],
+    isLoading: queueQuery.isLoading || clinicsQuery.isLoading,
+    isError: queueQuery.isError || clinicsQuery.isError,
     isConnected,
     registerPatient: registerPatientMutation.mutateAsync,
   };
