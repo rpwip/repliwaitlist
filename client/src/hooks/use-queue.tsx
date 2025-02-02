@@ -24,6 +24,11 @@ type RegistrationData = {
   clinicId: number;
 };
 
+type UpdateStatusData = {
+  queueId: number;
+  status: "waiting" | "in-progress" | "completed";
+};
+
 export function useQueue() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -116,6 +121,37 @@ export function useQueue() {
     enabled: !!user
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async (data: UpdateStatusData) => {
+      console.log('Updating status:', data);
+      const res = await apiRequest(
+        "POST",
+        `/api/queue/${data.queueId}/status`,
+        { status: data.status },
+        { credentials: 'include' }
+      );
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to update status');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+      toast({
+        title: "Status updated",
+        description: "Queue has been updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update status",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const clinicsQuery = useQuery({
     queryKey: ["/api/clinics"],
     queryFn: async () => {
@@ -182,5 +218,6 @@ export function useQueue() {
     isError: queueQuery.isError || clinicsQuery.isError,
     isConnected,
     registerPatient: registerPatientMutation.mutateAsync,
+    updateStatus: updateStatusMutation.mutateAsync,
   };
 }
