@@ -263,8 +263,8 @@ export default function DoctorPortal() {
         queueNumber: entry.queueNumber,
         status: entry.status,
         patient: {
-          id: entry.patient?.id || entry.patientId,
-          fullName: entry.patient?.fullName || entry.fullName
+          id: entry.patientId,  // Ensure we get the patient ID from the correct field
+          fullName: entry.patient?.fullName || entry.fullName || 'Unknown Patient'
         },
         estimatedWaitTime: entry.estimatedWaitTime || 0,
         clinicId: selectedClinicId,
@@ -342,12 +342,13 @@ export default function DoctorPortal() {
     setShowNewVisitModal(true);
   };
   
-  // Update the handleStartConsultation function
+  // Update the handleStartConsultation function to properly handle patient IDs
   const handleStartConsultation = (entry: QueueEntry) => {
     try {
       console.log("Starting consultation for:", entry);
 
       if (!entry.patient?.id) {
+        console.error("Patient ID missing from entry:", entry);
         toast({
           title: "Error",
           description: "Patient ID is missing",
