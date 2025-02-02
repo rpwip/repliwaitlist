@@ -26,6 +26,7 @@ function Router() {
       <Route path="/queue" component={Queue} />
       <Route path="/patient/:id" component={PatientPortal} />
       <ProtectedRoute path="/doctor" component={DoctorPortal} />
+      <ProtectedRoute path="/doctor/queue" component={DoctorPortal} /> 
       <ProtectedRoute path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
