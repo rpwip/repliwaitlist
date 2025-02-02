@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, timestamp, date, jsonb, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations } from "drizzle-orm";
+import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -331,7 +332,12 @@ export const selectPrescriptionAnalyticsSchema = createSelectSchema(prescription
 export const insertUserSchema = createInsertSchema(users);
 export const selectUserSchema = createSelectSchema(users);
 
-export const insertPatientSchema = createInsertSchema(patients);
+export const insertPatientSchema = createInsertSchema(patients).extend({
+  clinicId: z.number({
+    required_error: "Clinic ID is required",
+    invalid_type_error: "Clinic ID must be a number",
+  }),
+});
 export const selectPatientSchema = createSelectSchema(patients);
 
 export const insertDoctorSchema = createInsertSchema(doctors);

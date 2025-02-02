@@ -54,8 +54,15 @@ export default function RegistrationPage() {
       fullName: "",
       email: "",
       mobile: mobile,
+      clinicId: parseInt(selectedClinic) || undefined,
     },
   });
+
+  useEffect(() => {
+    if (selectedClinic) {
+      form.setValue('clinicId', parseInt(selectedClinic));
+    }
+  }, [selectedClinic, form]);
 
   const onSubmit = async (data: any) => {
     if (!selectedClinic) {
@@ -78,7 +85,7 @@ export default function RegistrationPage() {
         description: "Please proceed with the payment to secure your spot.",
       });
     } catch (error: any) {
-      console.error(error);
+      console.error('Registration error:', error);
       toast({
         title: "Registration failed",
         description: error.message || "Please try again",
