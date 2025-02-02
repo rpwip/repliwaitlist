@@ -25,11 +25,11 @@ interface PaymentQRProps {
   queueNumber: number;
 }
 
-export default function PaymentQR({ 
-  queueId, 
+export default function PaymentQR({
+  queueId,
   patientName,
   clinicDetails,
-  queueNumber 
+  queueNumber
 }: PaymentQRProps) {
   const { confirmPayment, verifyPayment } = useQueue();
   const { language } = useLanguage();
@@ -158,7 +158,7 @@ export default function PaymentQR({
               {getTranslation('confirmingPayment', language)}
             </>
           ) : (
-            getTranslation('confirmPayment', language)
+            "Payment verification done"
           )}
         </Button>
       </CardFooter>
