@@ -263,8 +263,8 @@ export default function DoctorPortal() {
         queueNumber: entry.queueNumber,
         status: entry.status,
         patient: {
-          id: entry.patientId,  // Ensure we get the patient ID from the correct field
-          fullName: entry.patient?.fullName || entry.fullName || 'Unknown Patient'
+          id: entry.patient?.id,  // Ensure we get the patient ID from the correct field
+          fullName: entry.patient?.fullName || 'Unknown Patient'
         },
         estimatedWaitTime: entry.estimatedWaitTime || 0,
         clinicId: selectedClinicId,
@@ -889,8 +889,7 @@ const renderQueue = () => (
                   Complete
                 </Button>
               </div>
-            </div>
-          ) : (
+            </div>          ) : (
             <div className="text-center py-8 text-muted-foreground">
               <p>No patient currently in consultation</p>
             </div>
