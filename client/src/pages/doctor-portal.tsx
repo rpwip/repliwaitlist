@@ -254,7 +254,27 @@ export default function DoctorPortal() {
       if (!selectedClinicId) return null;
       const response = await fetch(`/api/queue/${selectedClinicId}`);
       if (!response.ok) throw new Error("Failed to fetch queue");
-      return response.json();
+      const data = await response.json();
+
+      // Transform the data to match the QueueEntry type
+      return data.map((entry: any) => ({
+        id: entry.id,
+        queueNumber: entry.queueNumber,
+        status: entry.status,
+        patient: {
+          id: entry.patient?.id || entry.patientId,
+          fullName: entry.patient?.fullName || entry.fullName
+        },
+        estimatedWaitTime: entry.estimatedWaitTime || 0,
+        clinicId: selectedClinicId,
+        vitals: entry.vitals || {
+          bp: 'N/A',
+          temperature: 'N/A',
+          pulse: 'N/A',
+          spo2: 'N/A'
+        },
+        visitReason: entry.visitReason || ''
+      }));
     },
     enabled: !!selectedClinicId,
   });
@@ -766,7 +786,7 @@ const renderQueue = () => (
                   </div>
                   <div>
                     <p className="font-medium">
-                      #{entry.queueNumber} - {entry.patient.fullName}
+                      #{entry.queueNumber} - {entry.patient?.fullName || 'Unknown Patient'}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
@@ -815,7 +835,7 @@ const renderQueue = () => (
                 </div>
                 <div>
                   <h3 className="text-lg font-medium">
-                    {currentQueueEntry.patient.fullName}
+                    {currentQueueEntry.patient?.fullName || 'Unknown Patient'}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     Queue #{currentQueueEntry.queueNumber}
