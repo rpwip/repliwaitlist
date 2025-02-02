@@ -51,12 +51,18 @@ export default function DoctorPortal() {
   const { data: patientsData } = useQuery<PaginatedPatientsResponse>({
     queryKey: ["/api/doctor/patients", currentPage, searchTerm],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        page: currentPage.toString(),
-      });
+      const params = new URLSearchParams();
+
+      // Always send search term to backend if it exists
       if (searchTerm) {
         params.append("search", searchTerm);
       }
+
+      // Only send page if not searching
+      if (!searchTerm) {
+        params.append("page", currentPage.toString());
+      }
+
       const response = await fetch(`/api/doctor/patients?${params}`, {
         credentials: "include"
       });
@@ -194,7 +200,7 @@ export default function DoctorPortal() {
                       <p className="text-sm text-muted-foreground">
                         DOB: {format(new Date(data.patient.dateOfBirth), 'MMM dd, yyyy')}
                       </p>
-                        <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {data.patient.mobile || 'No phone number'}
                       </p>
                     </div>
@@ -223,8 +229,8 @@ export default function DoctorPortal() {
           ))}
       </div>
 
-      {/* Pagination */}
-      {patientsData?.pagination && (
+      {/* Pagination - Only show when not searching */}
+      {!searchTerm && patientsData?.pagination && (
         <div className="flex items-center justify-between">
           <Button
             variant="outline"
