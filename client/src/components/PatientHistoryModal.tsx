@@ -29,14 +29,13 @@ import {
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-// Enhanced type definitions
 interface PatientHistoryModalProps {
   patientId: number | null;
   onClose: () => void;
   open: boolean;
+  showNewVisitForm?: boolean;
 }
 
-// Add types for new functionality
 type CommonDisease = {
   id: string;
   name: string;
@@ -52,14 +51,18 @@ type MedicationSuggestion = {
   frequencyRecommendation: string;
 };
 
-export function PatientHistoryModal({ patientId, onClose, open }: PatientHistoryModalProps) {
+export function PatientHistoryModal({ 
+  patientId, 
+  onClose, 
+  open,
+  showNewVisitForm = false 
+}: PatientHistoryModalProps) {
   const { toast } = useToast();
   const [selectedDisease, setSelectedDisease] = useState<string>("");
   const [customDisease, setCustomDisease] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [comments, setComments] = useState<string>("");
 
-  // Fetch patient history
   const { data: history, isLoading, error } = useQuery({
     queryKey: ["/api/doctor/patient-history", patientId],
     queryFn: async () => {
@@ -73,7 +76,6 @@ export function PatientHistoryModal({ patientId, onClose, open }: PatientHistory
     enabled: !!patientId,
   });
 
-  // Fetch common diseases
   const { data: commonDiseases } = useQuery({
     queryKey: ["/api/common-diseases", searchTerm],
     queryFn: async () => {
@@ -85,7 +87,6 @@ export function PatientHistoryModal({ patientId, onClose, open }: PatientHistory
     },
   });
 
-  // Fetch medication suggestions based on selected disease
   const { data: medicationSuggestions } = useQuery({
     queryKey: ["/api/medication-suggestions", selectedDisease],
     queryFn: async () => {
@@ -97,7 +98,6 @@ export function PatientHistoryModal({ patientId, onClose, open }: PatientHistory
     enabled: !!selectedDisease,
   });
 
-  // Mutations for updating diagnoses and prescriptions
   const updateDiagnosis = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const response = await fetch(`/api/diagnoses/${id}`, {
@@ -139,16 +139,15 @@ export function PatientHistoryModal({ patientId, onClose, open }: PatientHistory
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-6xl h-[90vh]">
+      <DialogContent className={`${showNewVisitForm ? 'max-w-6xl' : 'max-w-4xl'} h-[90vh]`}>
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">
             Patient History: {history?.fullName}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 h-full">
-          {/* Left Side - Patient History */}
-          <div className="border-r pr-4">
+        <div className={showNewVisitForm ? "grid grid-cols-2 gap-4 h-full" : "h-full"}>
+          <div className={showNewVisitForm ? "border-r pr-4" : ""}>
             <Tabs defaultValue="overview">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="overview" className="flex items-center gap-2">
@@ -359,115 +358,111 @@ export function PatientHistoryModal({ patientId, onClose, open }: PatientHistory
             </Tabs>
           </div>
 
-          {/* Right Side - New Visit Form */}
-          <div className="pl-4">
-            <h3 className="text-lg font-semibold mb-4">New Visit Record</h3>
+          {showNewVisitForm && (
+            <div className="pl-4">
+              <h3 className="text-lg font-semibold mb-4">New Visit Record</h3>
 
-            {/* Disease Selection */}
-            <div className="space-y-4 mb-6">
-              <h4 className="font-medium">Common Health Issues</h4>
-              <div className="flex flex-wrap gap-2">
-                {commonDiseases?.slice(0, 6).map((disease: CommonDisease) => (
-                  <Button
-                    key={disease.id}
-                    variant={selectedDisease === disease.id ? "default" : "outline"}
-                    onClick={() => setSelectedDisease(disease.id)}
-                    size="sm"
-                  >
-                    {disease.name}
-                  </Button>
-                ))}
+              <div className="space-y-4 mb-6">
+                <h4 className="font-medium">Common Health Issues</h4>
+                <div className="flex flex-wrap gap-2">
+                  {commonDiseases?.slice(0, 6).map((disease: CommonDisease) => (
+                    <Button
+                      key={disease.id}
+                      variant={selectedDisease === disease.id ? "default" : "outline"}
+                      onClick={() => setSelectedDisease(disease.id)}
+                      size="sm"
+                    >
+                      {disease.name}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search other conditions..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
+                {searchTerm && (
+                  <div className="border rounded-md p-2">
+                    {commonDiseases?.map((disease: CommonDisease) => (
+                      <div
+                        key={disease.id}
+                        className="p-2 hover:bg-accent cursor-pointer"
+                        onClick={() => {
+                          setSelectedDisease(disease.id);
+                          setSearchTerm("");
+                        }}
+                      >
+                        {disease.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search other conditions..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+              {selectedDisease && (
+                <div className="space-y-4 mb-6">
+                  <h4 className="font-medium">Recommended Medications</h4>
+                  <div className="space-y-2">
+                    {medicationSuggestions?.map((med: MedicationSuggestion) => (
+                      <div
+                        key={med.brandName}
+                        className="border rounded-lg p-3 hover:bg-accent/50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{med.brandName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {med.genericName}
+                            </p>
+                          </div>
+                          {med.isCloudCarePartner && (
+                            <Badge variant="secondary">CloudCare Partner</Badge>
+                          )}
+                        </div>
+                        <div className="mt-2 text-sm">
+                          <p>Dosage: {med.dosageRecommendation}</p>
+                          <p>Frequency: {med.frequencyRecommendation}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2 mb-6">
+                <h4 className="font-medium">Visit Notes</h4>
+                <Textarea
+                  placeholder="Add any additional notes or observations..."
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  className="min-h-[100px]"
                 />
               </div>
 
-              {searchTerm && (
-                <div className="border rounded-md p-2">
-                  {commonDiseases?.map((disease: CommonDisease) => (
-                    <div
-                      key={disease.id}
-                      className="p-2 hover:bg-accent cursor-pointer"
-                      onClick={() => {
-                        setSelectedDisease(disease.id);
-                        setSearchTerm("");
-                      }}
-                    >
-                      {disease.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Medication Suggestions */}
-            {selectedDisease && (
-              <div className="space-y-4 mb-6">
-                <h4 className="font-medium">Recommended Medications</h4>
-                <div className="space-y-2">
-                  {medicationSuggestions?.map((med: MedicationSuggestion) => (
-                    <div
-                      key={med.brandName}
-                      className="border rounded-lg p-3 hover:bg-accent/50"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{med.brandName}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {med.genericName}
-                          </p>
-                        </div>
-                        {med.isCloudCarePartner && (
-                          <Badge variant="secondary">CloudCare Partner</Badge>
-                        )}
-                      </div>
-                      <div className="mt-2 text-sm">
-                        <p>Dosage: {med.dosageRecommendation}</p>
-                        <p>Frequency: {med.frequencyRecommendation}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    addNewVisit.mutate({
+                      patientId,
+                      diagnosis: selectedDisease,
+                      comments,
+                    });
+                  }}
+                >
+                  Save Visit Record
+                </Button>
               </div>
-            )}
-
-            {/* Comments Section */}
-            <div className="space-y-2 mb-6">
-              <h4 className="font-medium">Visit Notes</h4>
-              <Textarea
-                placeholder="Add any additional notes or observations..."
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                className="min-h-[100px]"
-              />
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  addNewVisit.mutate({
-                    patientId,
-                    diagnosis: selectedDisease,
-                    comments,
-                    // Add other necessary data
-                  });
-                }}
-              >
-                Save Visit Record
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -112,6 +112,7 @@ export default function QueueDisplay() {
             patientId={selectedPatientId}
             onClose={() => setSelectedPatientId(null)}
             open={!!selectedPatientId}
+            showNewVisitForm={true}
           />
         )}
       </div>
