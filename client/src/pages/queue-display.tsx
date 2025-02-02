@@ -41,6 +41,7 @@ export default function QueueDisplay() {
   };
 
   const handleViewPatientHistory = (patientId: number) => {
+    console.log("Viewing patient history for:", patientId);
     setSelectedPatientId(patientId);
     setShowNewVisitForm(false);
   };
@@ -88,27 +89,32 @@ export default function QueueDisplay() {
             <h2 className="text-2xl font-semibold mb-4">Next in Line</h2>
             <div className="space-y-4">
               {waitingPatients.map((patient) => (
-                <div
+                <button
                   key={patient.id}
-                  className="flex items-center justify-between p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80"
-                  onClick={() => handleViewPatientHistory(patient.patient.id)}
+                  className="w-full text-left"
+                  onClick={() => {
+                    console.log("Patient card clicked:", patient.patient.id);
+                    handleViewPatientHistory(patient.patient.id);
+                  }}
                 >
-                  <div className="flex items-center space-x-4">
-                    <QueueNumber
-                      number={patient.queueNumber}
-                      className="text-4xl"
-                    />
-                    <div>
-                      <p className="font-medium">{patient.patient.fullName}</p>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4 mr-1" />
-                        <span>
-                          Est. wait: {patient.estimatedWaitTime} mins
-                        </span>
+                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <QueueNumber
+                        number={patient.queueNumber}
+                        className="text-4xl"
+                      />
+                      <div>
+                        <p className="font-medium">{patient.patient.fullName}</p>
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 mr-1" />
+                          <span>
+                            Est. wait: {patient.estimatedWaitTime} mins
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
               {waitingPatients.length === 0 && (
                 <p className="text-center text-muted-foreground">
