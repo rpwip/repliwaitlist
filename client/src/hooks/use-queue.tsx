@@ -104,6 +104,16 @@ export function useQueue() {
   const queueQuery = useQuery<any[]>({
     queryKey: ["/api/queue"],
     refetchInterval: isConnected ? false : 5000,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 5000),
+    onError: (error) => {
+      console.error('Error fetching queue:', error);
+      toast({
+        title: "Queue Update Failed",
+        description: "Could not fetch latest queue data. Will retry automatically.",
+        variant: "destructive",
+      });
+    }
   });
 
   const clinicsQuery = useQuery<Clinic[]>({
