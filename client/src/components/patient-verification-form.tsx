@@ -16,10 +16,19 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Loader2, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { insertPatientSchema } from "@db/schema";
+import { z } from "zod";
 import PaymentQR from "./payment-qr";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
+
+// Define a local schema for the form
+const patientFormSchema = z.object({
+  fullName: z.string().min(1, "Name is required"),
+  email: z.string().email().optional().or(z.literal("")),
+  mobile: z.string().min(10, "Mobile number must be at least 10 digits"),
+});
+
+type PatientFormData = z.infer<typeof patientFormSchema>;
 
 type PatientData = {
   id: number;
@@ -38,8 +47,8 @@ export default function PatientVerificationForm() {
   const [foundPatients, setFoundPatients] = useState<PatientData[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
 
-  const form = useForm({
-    resolver: zodResolver(insertPatientSchema),
+  const form = useForm<PatientFormData>({
+    resolver: zodResolver(patientFormSchema),
     defaultValues: {
       fullName: "",
       email: "",
@@ -74,7 +83,7 @@ export default function PatientVerificationForm() {
     }
   };
 
-  const handleRegistration = async (data: any) => {
+  const handleRegistration = async (data: PatientFormData) => {
     try {
       const result = await registerPatient(data);
       setRegistrationData(result);
@@ -201,6 +210,7 @@ export default function PatientVerificationForm() {
                 <Input
                   placeholder={getTranslation("fullNamePlaceholder", language)}
                   {...field}
+                  onChange={(e) => field.onChange(e)}
                 />
               </FormControl>
               <FormMessage />
