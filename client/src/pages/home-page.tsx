@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import PatientVerificationForm from "@/components/patient-verification-form";
 import { LanguageSelector } from "@/components/language-selector";
 
+const logoUrl = new URL('../../attached_assets/cclogo.jpeg', import.meta.url).href;
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
@@ -10,7 +12,7 @@ export default function HomePage() {
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
               <img
-                src="/attached_assets/cclogo.jpeg"
+                src={logoUrl}
                 alt="Cloud Cares Logo"
                 className="h-16 w-16 object-contain rounded-lg"
               />
