@@ -508,7 +508,7 @@ export function registerRoutes(app: Express): Server {
       }
       console.log(`Found clinic assignment: ${JSON.stringify(assignment)}`);
 
-      // Get queue entries for the specified clinic with a simpler structure
+      // Fetch queue entries for the specified clinic
       console.log(`Fetching queue entries for clinic ${clinicId}`);
       const entries = await db
         .select({
@@ -545,9 +545,10 @@ export function registerRoutes(app: Express): Server {
       const avgWaitTime = await calculateAverageWaitTime();
       console.log(`Average wait time calculated: ${avgWaitTime} minutes`);
 
-      // Format the response data
+      // Format the response data with unique keys
       const queueWithWaitTimes = entries.map((entry, index) => {
         const formattedEntry = {
+          key: `${entry.id}`, // Ensure unique key for React
           id: entry.id,
           queueNumber: entry.queueNumber,
           status: entry.status,
@@ -904,7 +905,7 @@ app.get("/api/doctor/patients", async (req, res) => {
     try {
       // Fetch patient basic info
       const [patient] = await db
-        .select()
+.select()
         .from(patients)
         .where(eq(patients.id, parseInt(patientId)))
         .limit(1);
