@@ -29,14 +29,23 @@ const patientFormSchema = z.object({
 
 type PatientFormData = z.infer<typeof patientFormSchema>;
 
+type QueueEntryData = {
+  id: number;
+  queueNumber: number;
+  status: string;
+};
+
 type PatientData = {
   id: number;
   fullName: string;
   email: string | null;
   mobile: string;
-  queueEntry?: {
-    id: number;
-  };
+  queueEntry?: QueueEntryData;
+};
+
+type RegistrationResponse = {
+  patient: PatientData;
+  queueEntry: QueueEntryData;
 };
 
 export default function PatientVerificationForm() {
@@ -44,7 +53,7 @@ export default function PatientVerificationForm() {
   const { verifyPatient, isVerifying } = usePatient();
   const { toast } = useToast();
   const { language } = useLanguage();
-  const [registrationData, setRegistrationData] = useState<PatientData | null>(null);
+  const [registrationData, setRegistrationData] = useState<RegistrationResponse | null>(null);
   const [isNewPatient, setIsNewPatient] = useState(false);
   const [foundPatients, setFoundPatients] = useState<PatientData[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
@@ -116,14 +125,21 @@ export default function PatientVerificationForm() {
     }
   };
 
-  if (registrationData?.queueEntry || (selectedPatient && selectedPatient.queueEntry)) {
+  // Show payment QR if we have registration data or selected patient with queue entry
+  if (registrationData?.queueEntry || (selectedPatient?.queueEntry)) {
+    const queueId = registrationData?.queueEntry?.id || selectedPatient?.queueEntry?.id;
+    if (!queueId) {
+      return <div>Error: Queue entry not found</div>;
+    }
+
     return (
       <Card className="p-6">
-        <PaymentQR
-          queueId={
-            registrationData?.queueEntry?.id || selectedPatient?.queueEntry?.id
-          }
-        />
+        <CardHeader>
+          <CardTitle>Payment Required</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PaymentQR queueId={queueId} />
+        </CardContent>
       </Card>
     );
   }
