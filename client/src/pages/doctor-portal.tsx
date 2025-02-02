@@ -333,7 +333,8 @@ export default function DoctorPortal() {
     completeConsultation.mutate(queueId);
   };
 
-    const handleNewVisit = (entry: any) => {
+  const handleNewVisit = (entry: QueueEntry) => {
+    setSelectedPatientId(entry.patientId || 0);
     setCurrentQueueEntry(entry);
     setShowNewVisitModal(true);
   };
@@ -823,6 +824,32 @@ const renderQueue = () => (
         </CardContent>
       </Card>
     </div>
+        {/* Patient History Modal */}
+      {selectedPatientId && (
+        <PatientHistoryModal
+          open={!!selectedPatientId}
+          onClose={() => setSelectedPatientId(null)}
+          patientId={selectedPatientId}
+        />
+      )}
+
+      {/* New Visit Record Modal */}
+      {showNewVisitModal && currentQueueEntry && (
+        <NewVisitRecordModal
+          open={showNewVisitModal}
+          onClose={() => setShowNewVisitModal(false)}
+          patientId={currentQueueEntry.patientId || 0}
+          doctorId={user?.id || 0}
+          clinicId={selectedClinicId || 0}
+          vitals={currentQueueEntry.vitals || {
+            bp: 'N/A',
+            temperature: 'N/A',
+            pulse: 'N/A',
+            spo2: 'N/A'
+          }}
+          visitReason={currentQueueEntry.visitReason || 'Not specified'}
+        />
+      )}
   </div>
 );
 
@@ -1096,14 +1123,6 @@ const renderQueue = () => (
           </div>
         </div>
 
-        {/* Patient History Modal */}
-        {selectedPatientId && (
-          <PatientHistoryModal 
-            key={`modal-${selectedPatientId}`}
-            patientId={selectedPatientId} 
-            onClose={() => setSelectedPatientId(null)}
-          />
-        )}
       </div>
     </div>
   );
