@@ -1002,11 +1002,13 @@ const renderQueue = () => (
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Total Visits:</span>
-                  <span className="font-medium">{data.totalVisits}</span>
+                  <span className="font-medium">{data.totalVisits || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Primary Clinic:</span>
-                  <span className="font-medium">{data.clinic.name}</span>
+                  <span className="font-medium">
+                    {data.clinic?.name || 'Not assigned'}
+                  </span>
                 </div>
               </CardContent>
             </Card>
