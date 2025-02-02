@@ -27,7 +27,9 @@ type PatientHistory = {
   visits: Array<{
     id: number;
     visitedAt: string;
-    notes: string;
+    symptoms: string;
+    diagnosis: string;
+    treatment: string;
     doctorId: number;
   }>;
   diagnoses: Array<{
@@ -41,11 +43,11 @@ type PatientHistory = {
   prescriptions: Array<{
     id: number;
     createdAt: string;
-    medications: {
+    medications: Array<{
       name: string;
       dosage: string;
       frequency: string;
-    }[];
+    }>;
     instructions: string;
     isActive: boolean;
     doctorId: number;
@@ -67,14 +69,6 @@ interface PatientHistoryModalProps {
 export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalProps) {
   const { data: history, isLoading } = useQuery<PatientHistory>({
     queryKey: ["/api/doctor/patient-history", patientId],
-    queryFn: async () => {
-      if (!patientId) throw new Error("No patient ID provided");
-      const response = await fetch(`/api/doctor/patient-history/${patientId}`, {
-        credentials: "include"
-      });
-      if (!response.ok) throw new Error("Failed to fetch patient history");
-      return response.json();
-    },
     enabled: !!patientId,
   });
 
@@ -113,6 +107,10 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
+          ) : !history ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">Failed to load patient history</p>
+            </div>
           ) : (
             <ScrollArea className="h-[calc(80vh-10rem)] mt-4">
               <TabsContent value="overview" className="space-y-4">
@@ -123,7 +121,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                       Active Conditions
                     </h3>
                     <div className="space-y-2">
-                      {history?.diagnoses
+                      {history.diagnoses
                         .filter(d => d.status === "Active")
                         .map(diagnosis => (
                           <div key={diagnosis.id} className="p-3 border rounded-lg">
@@ -142,7 +140,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                       Current Medications
                     </h3>
                     <div className="space-y-2">
-                      {history?.prescriptions
+                      {history.prescriptions
                         .filter(p => p.isActive)
                         .map(prescription => (
                           <div key={prescription.id} className="p-3 border rounded-lg">
@@ -175,17 +173,17 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                     </TableHeader>
                     <TableBody>
                       {[
-                        ...history?.visits.map(v => ({
+                        ...history.visits.map(v => ({
                           date: v.visitedAt,
                           type: "Visit",
-                          details: v.notes,
+                          details: v.diagnosis,
                         })) || [],
-                        ...history?.diagnoses.map(d => ({
+                        ...history.diagnoses.map(d => ({
                           date: d.diagnosedAt,
                           type: "Diagnosis",
                           details: d.condition,
                         })) || [],
-                        ...history?.prescriptions.map(p => ({
+                        ...history.prescriptions.map(p => ({
                           date: p.createdAt,
                           type: "Prescription",
                           details: p.medications.map(m => m.name).join(", "),
@@ -223,7 +221,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history?.diagnoses.map(diagnosis => (
+                    {history.diagnoses.map(diagnosis => (
                       <TableRow key={diagnosis.id}>
                         <TableCell>{format(new Date(diagnosis.diagnosedAt), 'PP')}</TableCell>
                         <TableCell className="font-medium">{diagnosis.condition}</TableCell>
@@ -250,7 +248,7 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history?.prescriptions.map(prescription => (
+                    {history.prescriptions.map(prescription => (
                       <TableRow key={prescription.id}>
                         <TableCell>{format(new Date(prescription.createdAt), 'PP')}</TableCell>
                         <TableCell>
@@ -283,14 +281,18 @@ export function PatientHistoryModal({ patientId, onClose }: PatientHistoryModalP
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Notes</TableHead>
+                      <TableHead>Symptoms</TableHead>
+                      <TableHead>Diagnosis</TableHead>
+                      <TableHead>Treatment</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {history?.visits.map(visit => (
+                    {history.visits.map(visit => (
                       <TableRow key={visit.id}>
                         <TableCell>{format(new Date(visit.visitedAt), 'PP')}</TableCell>
-                        <TableCell>{visit.notes}</TableCell>
+                        <TableCell>{visit.symptoms}</TableCell>
+                        <TableCell>{visit.diagnosis}</TableCell>
+                        <TableCell>{visit.treatment}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
