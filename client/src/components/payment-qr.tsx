@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/lib/language-context";
 import { getTranslation } from "@/lib/translations";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
 interface PaymentQRProps {
   queueId: number;
@@ -33,18 +34,17 @@ export default function PaymentQR({
 }: PaymentQRProps) {
   const { confirmPayment, verifyPayment } = useQueue();
   const { language } = useLanguage();
+  const [, setLocation] = useLocation();
   const [qrUrl, setQrUrl] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const [transactionRef, setTransactionRef] = useState("");
-  const consultationFee = 500; // In production, this would come from clinic settings
+  const consultationFee = 500;
 
   useEffect(() => {
-    // Generate a unique transaction reference
     const txnRef = `CC-${queueId}-${Date.now()}`;
     setTransactionRef(txnRef);
 
-    // Create payment details for QR code
     const paymentDetails = {
       patientName,
       clinicName: clinicDetails.name,
@@ -54,7 +54,6 @@ export default function PaymentQR({
       reference: txnRef
     };
 
-    // Generate a UPI QR code URL with transaction reference and details
     const dummyUpiUrl = `upi://pay?pa=cloudcares@upi&pn=Cloud%20Cares&am=${consultationFee}.00&cu=INR&tr=${txnRef}&tn=Consultation at ${clinicDetails.name}`;
     setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(dummyUpiUrl)}`);
   }, [queueId, patientName, clinicDetails, queueNumber]);
@@ -84,6 +83,7 @@ export default function PaymentQR({
       setIsConfirming(true);
       await confirmPayment(queueId);
       setIsPaid(true);
+      setLocation(`/display?clinicId=${clinicDetails.id}`);
     } catch (error) {
       console.error('Payment confirmation failed:', error);
     } finally {

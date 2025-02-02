@@ -26,14 +26,20 @@ type QueueEntryWithWaitTime = {
 };
 
 export default function QueueDisplay() {
-  const [selectedClinicId, setSelectedClinicId] = useState<number>(15);
+  const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const { queue, isLoading, clinics, isError } = useQueue();
   const typedQueue = (queue || []) as QueueEntryWithWaitTime[];
   const currentDate = new Date();
   const formattedDate = format(currentDate, "EEEE, dd MMMM yyyy");
 
   useEffect(() => {
-    if (clinics && clinics.length > 0 && !selectedClinicId) {
+    // Get clinicId from URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const clinicIdParam = params.get('clinicId');
+
+    if (clinicIdParam) {
+      setSelectedClinicId(parseInt(clinicIdParam));
+    } else if (clinics && clinics.length > 0 && !selectedClinicId) {
       const yazhHealthcare = clinics.find(clinic => clinic.name === "Yazh Health Care");
       setSelectedClinicId(yazhHealthcare?.id || clinics[0].id);
     }
@@ -87,7 +93,7 @@ export default function QueueDisplay() {
               <SelectValue placeholder="Select clinic" />
             </SelectTrigger>
             <SelectContent>
-              {clinics.map((clinic) => (
+              {Array.isArray(clinics) && clinics.map((clinic) => (
                 <SelectItem key={clinic.id} value={clinic.id.toString()}>
                   {clinic.name}
                 </SelectItem>
