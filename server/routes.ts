@@ -1543,6 +1543,41 @@ app.get("/api/doctor/top-brands", async (req, res) => {
       res.status(500).send("Failed to create visit record");
     }
   });
+  
+// Add clinics endpoint with improved error handling
+app.get("/api/clinics", async (_req, res) => {
+  try {
+    console.log('Fetching clinics data...');
+    const clinicsData = await db
+      .select({
+        id: clinics.id,
+        name: clinics.name,
+        address: clinics.address,
+        contactNumber: clinics.contactNumber,
+        type: clinics.type,
+      })
+      .from(clinics)
+      .orderBy(clinics.name);
+
+    console.log(`Found ${clinicsData.length} clinics`);
+
+    if (!clinicsData || clinicsData.length === 0) {
+      console.log('No clinics found in database');
+      return res.status(404).json({
+        error: 'Not Found',
+        message: 'No clinics available'
+      });
+    }
+
+    res.json(clinicsData);
+  } catch (error) {
+    console.error('Error fetching clinics:', error);
+    res.status(500).json({
+      error: 'Failed to fetch clinics',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    });
+  }
+});
 
   return httpServer;
 }
