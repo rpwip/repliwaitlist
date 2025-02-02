@@ -54,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 type DoctorDashboardData = {
   metrics: SelectDoctorMetrics[];
@@ -124,7 +125,6 @@ type TopBrandData = {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
-// Add type definition for queue entry
 type QueueEntry = {
   key: string;
   id: number;
@@ -133,13 +133,23 @@ type QueueEntry = {
   fullName: string;
   estimatedWaitTime: number;
   createdAt: string;
+  patientId?: number;
   patient?: {
     fullName: string;
+    id: number;
   };
+  vitals?: {
+    bp?: string;
+    temperature?: string;
+    pulse?: string;
+    spo2?: string;
+  };
+  visitReason?: string;
 };
 
 export default function DoctorPortal() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [brandsSearchTerm, setBrandsSearchTerm] = useState("");
@@ -284,10 +294,36 @@ export default function DoctorPortal() {
     },
   });
 
-   const handleStartConsultation = (entry: any) => {
-    setCurrentQueueEntry(entry);
-    startConsultation.mutate(entry.id);
+   const handleStartConsultation = (entry: QueueEntry) => {
+    try {
+      const formattedEntry = {
+        ...entry,
+        patient: {
+          fullName: entry.fullName,
+          id: entry.patientId || 0
+        },
+        patientId: entry.patientId || 0,
+        vitals: entry.vitals || {
+          bp: 'N/A',
+          temperature: 'N/A',
+          pulse: 'N/A',
+          spo2: 'N/A'
+        },
+        visitReason: entry.visitReason || 'Not specified'
+      };
+
+      setCurrentQueueEntry(formattedEntry);
+      startConsultation.mutate(entry.id);
+    } catch (error) {
+      console.error('Error starting consultation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start consultation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
+
 
   const handleSkipPatient = (queueId: number) => {
     skipPatient.mutate(queueId);
@@ -639,7 +675,6 @@ export default function DoctorPortal() {
     </div>
   );
   
-// Update the renderQueue function with proper type safety and loading states
 const renderQueue = () => (
   <div className="space-y-6">
     {/* Clinic Selector and Date */}
