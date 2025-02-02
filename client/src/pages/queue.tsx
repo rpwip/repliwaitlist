@@ -76,17 +76,10 @@ export default function Queue() {
     ? queue.filter(q => q.clinicId === selectedClinicId)
     : [];
 
-  console.log("Selected Clinic ID:", selectedClinicId);
-  console.log("Full Queue:", queue);
-  console.log("Filtered Queue:", filteredQueue);
-
   const currentPatient = filteredQueue.find(q => q.status === "in-progress");
   const waitingPatients = filteredQueue
     .filter(q => q.status === "waiting")
     .sort((a, b) => a.queueNumber - b.queueNumber);
-
-  console.log("Current Patient:", currentPatient);
-  console.log("Waiting Patients:", waitingPatients);
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -120,32 +113,7 @@ export default function Queue() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
-          <Card className="p-8">
-            <h2 className="text-2xl font-semibold mb-4">Now Serving</h2>
-            {currentPatient ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-center">
-                  <div className="text-center">
-                    <QueueNumber
-                      number={currentPatient.queueNumber}
-                      className="text-8xl"
-                    />
-                    <div className="mt-4 flex items-center justify-center space-x-2">
-                      <UserRound className="h-6 w-6 text-muted-foreground" />
-                      <p className="text-lg">
-                        {currentPatient.patient.fullName}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground">
-                No patient currently being served
-              </p>
-            )}
-          </Card>
-
+          {/* Waiting Patients - Left Side */}
           <Card className="p-8">
             <h2 className="text-2xl font-semibold mb-4">Waiting Patients</h2>
             <div className="space-y-4">
@@ -177,6 +145,33 @@ export default function Queue() {
                 </p>
               )}
             </div>
+          </Card>
+
+          {/* Now Serving - Right Side */}
+          <Card className="p-8">
+            <h2 className="text-2xl font-semibold mb-4">Now Serving</h2>
+            {currentPatient ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center">
+                  <div className="text-center">
+                    <QueueNumber
+                      number={currentPatient.queueNumber}
+                      className="text-8xl"
+                    />
+                    <div className="mt-4 flex items-center justify-center space-x-2">
+                      <UserRound className="h-6 w-6 text-muted-foreground" />
+                      <p className="text-lg">
+                        {currentPatient.patient.fullName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground">
+                No patient currently being served
+              </p>
+            )}
           </Card>
         </div>
       </div>
