@@ -105,7 +105,21 @@ type DoctorPatientData = {
 };
 
 type PaginatedPatientsResponse = {
-  patients: DoctorPatientData[];
+  patients: {
+    patient: {
+      id: number;
+      fullName: string;
+      dateOfBirth: string;
+      email?: string | null;
+      mobile?: string | null;
+    };
+    lastVisit: string;
+    totalVisits: number;
+    clinic: {
+      id: number;
+      name: string;
+    };
+  }[];
   pagination: {
     total: number;
     pages: number;
@@ -925,7 +939,7 @@ const renderQueue = () => (
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search patients..."
+            placeholder="Search by name, phone number..."
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -936,14 +950,24 @@ const renderQueue = () => (
       {/* Patients Grid */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {patientsData?.patients
-          .filter(data => 
-            data.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            data.patient.mobile?.includes(searchTerm) ||
-            data.patient.email?.toLowerCase().includes(searchTerm.toLowerCase())
+          .filter(data => {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+              data.patient.fullName.toLowerCase().includes(searchLower) ||
+              (data.patient.mobile && data.patient.mobile.includes(searchTerm))
+            );
+          })
+          // Remove duplicates based on combination of name, mobile, and DOB
+          .filter((data, index, self) => 
+            index === self.findIndex((t) => (
+              t.patient.fullName === data.patient.fullName &&
+              t.patient.mobile === data.patient.mobile &&
+              t.patient.dateOfBirth === data.patient.dateOfBirth
+            ))
           )
           .map((data) => (
             <Card 
-              key={data.patient.id}
+              key={`${data.patient.id}-${data.patient.mobile}`}
               className="hover:bg-accent/50 transition-colors cursor-pointer"
               onClick={() => {
                 console.log("Patient card clicked:", data.patient.id);
@@ -958,34 +982,31 @@ const renderQueue = () => (
                   </div>
                   <div>
                     <CardTitle className="text-lg">{data.patient.fullName}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {data.totalVisits} visits • {data.activeDiagnoses} active conditions
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">
+                        DOB: {format(new Date(data.patient.dateOfBirth), 'MMM dd, yyyy')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {data.patient.mobile || 'No phone number'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Last Visit:</span>
-                    <span className="font-medium">
-                      {data.lastVisit ? format(new Date(data.lastVisit), 'PPP') : 'No visits yet'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Active Prescriptions:</span>
-                    <span className="font-medium">{data.activePresc}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Contact:</span>
-                    <span className="font-medium">{data.patient.mobile}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Assigned:</span>
-                    <span className="font-medium">
-                      {format(new Date(data.assignedAt), 'PP')}
-                    </span>
-                  </div>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Last Visit:</span>
+                  <span className="font-medium">
+                    {data.lastVisit ? format(new Date(data.lastVisit), 'MMM dd, yyyy') : 'No visits yet'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Total Visits:</span>
+                  <span className="font-medium">{data.totalVisits}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Primary Clinic:</span>
+                  <span className="font-medium">{data.clinic.name}</span>
                 </div>
               </CardContent>
             </Card>
