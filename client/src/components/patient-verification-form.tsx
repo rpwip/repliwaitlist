@@ -35,6 +35,9 @@ type PatientData = {
   fullName: string;
   email: string | null;
   mobile: string;
+  queueEntry?: {
+    id: number;
+  };
 };
 
 export default function PatientVerificationForm() {
@@ -79,7 +82,6 @@ export default function PatientVerificationForm() {
       });
     } catch (error) {
       setIsNewPatient(true);
-      // Initialize registration form with mobile number
       registrationForm.reset({
         fullName: "",
         email: "",
@@ -90,7 +92,13 @@ export default function PatientVerificationForm() {
 
   const handleRegistration = async (data: PatientFormData) => {
     try {
-      const result = await registerPatient(data);
+      const payload = {
+        fullName: data.fullName,
+        email: data.email || null,
+        mobile: data.mobile,
+      };
+
+      const result = await registerPatient(payload);
       setRegistrationData(result);
       toast({
         title: "Registration successful",
