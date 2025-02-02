@@ -24,6 +24,8 @@ import {
   Phone,
   Mail,
   Calendar as CalendarIcon,
+  Pill,
+  User,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -45,8 +47,6 @@ import type {
   SelectClinic,
 } from "@db/schema";
 import { useAuth } from "@/hooks/use-auth";
-import { PatientHistoryModal } from "@/components/PatientHistoryModal";
-import { NewVisitRecordModal } from "@/components/NewVisitRecordModal";
 import {
   Select,
   SelectContent,
@@ -55,7 +55,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-
+import ConsultationView from "./consultation-view";
 type DoctorDashboardData = {
   metrics: SelectDoctorMetrics[];
   clinicAssignments: {
@@ -153,7 +153,7 @@ export default function DoctorPortal() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [brandsSearchTerm, setBrandsSearchTerm] = useState("");
-  const [view, setView] = useState<"overview" | "queue" | "patients" | "prescriptions">("overview");
+  const [view, setView] = useState<"overview" | "queue" | "patients" | "prescriptions" | "consultation">("overview");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
@@ -334,9 +334,16 @@ export default function DoctorPortal() {
   };
 
   const handleNewVisit = (entry: QueueEntry) => {
-    setSelectedPatientId(entry.patientId || 0);
+    if (!entry.patientId) {
+      toast({
+        title: "Error",
+        description: "Patient ID is missing",
+        variant: "destructive",
+      });
+      return;
+    }
     setCurrentQueueEntry(entry);
-    setShowNewVisitModal(true);
+    setView("consultation");
   };
 
   if (isLoading) {
@@ -824,32 +831,6 @@ const renderQueue = () => (
         </CardContent>
       </Card>
     </div>
-        {/* Patient History Modal */}
-      {selectedPatientId && (
-        <PatientHistoryModal
-          open={!!selectedPatientId}
-          onClose={() => setSelectedPatientId(null)}
-          patientId={selectedPatientId}
-        />
-      )}
-
-      {/* New Visit Record Modal */}
-      {showNewVisitModal && currentQueueEntry && (
-        <NewVisitRecordModal
-          open={showNewVisitModal}
-          onClose={() => setShowNewVisitModal(false)}
-          patientId={currentQueueEntry.patientId || 0}
-          doctorId={user?.id || 0}
-          clinicId={selectedClinicId || 0}
-          vitals={currentQueueEntry.vitals || {
-            bp: 'N/A',
-            temperature: 'N/A',
-            pulse: 'N/A',
-            spo2: 'N/A'
-          }}
-          visitReason={currentQueueEntry.visitReason || 'Not specified'}
-        />
-      )}
   </div>
 );
 
@@ -890,7 +871,7 @@ const renderQueue = () => (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium mb-2">Recent Patients</h4>
                 <div className="space-y-2">
-                  {data.recentPatients?.slice(0, 3).map((patient) => (
+                  {data.recentPatients?.slice(0,3).map((patient) => (
                     <div key={patient.id} className="flex items-center justify-between text-sm">
                       <span>{patient.fullName}</span>
                       <span className="text-muted-foreground">
@@ -1030,99 +1011,67 @@ const renderQueue = () => (
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <h1 className="text-2xl font-semibold">Doctor Portal</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
-              Dr. {user?.username}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="grid md:grid-cols-12 gap-6">
-          {/* Left Sidebar - Navigation */}
-          <div className="md:col-span-3 space-y-4">
-            <Card>
-              <CardContent className="p-4">
-                <nav className="space-y-2">
-                  <Button
-                    variant={view === "overview" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("overview")}
-                  >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Overview
-                  </Button>
-                  <Button
-                    variant={view === "patients" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("patients")}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Patients
-                  </Button>
-                  <Button
-                    variant={view === "queue" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("queue")}
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    Queue
-                  </Button>
-                  <Button
-                    variant={view === "prescriptions" ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => setView("prescriptions")}
-                  >
-                    <ClipboardList className="h-4 w-4 mr-2" />
-                    Prescriptions
-                  </Button>
-                </nav>
-              </CardContent>
-            </Card>
-
-            {/* Recent Patients */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Recent Patients</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  {dashboardData?.recentPatients?.map((patient, index) => (
-                    <div
-                      key={`sidebar-recent-${patient.id}-${index}`}
-                      className="flex items-center gap-4 cursor-pointer hover:bg-muted p-2 rounded-lg"
-                      onClick={() => setSelectedPatientId(patient.id)}
-                    >
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <UserRound className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium">{patient.fullName}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Last visit: {format(new Date(patient.registeredAt || new Date()), 'PP')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content */}
-          <div className="md:col-span-9">
-            {view === "overview" && renderOverview()}
-            {view === "prescriptions" && renderPrescriptions()}
-            {view === "queue" && renderQueue()}
-            {view === "patients" && renderPatients()}
-          </div>
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="w-64 border-r min-h-screen p-4">
+          <nav className="space-y-2">
+            <Button
+              variant={view === "overview" ? "default" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setView("overview")}
+            >
+              <PieChart className="mr-2 h-4 w-4" />
+              Overview
+            </Button>
+            <Button
+              variant={view === "queue" ? "default" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setView("queue")}
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Queue
+            </Button>
+            <Button
+              variant={view === "patients" ? "default" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setView("patients")}
+            >
+              <User className="mr-2 h-4 w-4" />
+              Patients
+            </Button>
+            <Button
+              variant={view === "prescriptions" ? "default" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setView("prescriptions")}
+            >
+              <Pill className="mr-2 h-4 w-4" />
+              Prescriptions
+            </Button>
+          </nav>
         </div>
 
+        {/* Main Content */}
+        <div className="flex-1 p-6">
+          {view === "consultation" && currentQueueEntry ? (
+            <ConsultationView
+              patientId={currentQueueEntry.patientId!}
+              doctorId={user?.id || 0}
+              clinicId={selectedClinicId || 0}
+              currentVisit={{
+                vitals: currentQueueEntry.vitals,
+                visitReason: currentQueueEntry.visitReason,
+              }}
+            />
+          ) : view === "overview" ? (
+            renderOverview()
+          ) : view === "queue" ? (
+            renderQueue()
+          ) : view === "patients" ? (
+            renderPatients()
+          ) : (
+            renderPrescriptions()
+          )}
+        </div>
       </div>
     </div>
   );
