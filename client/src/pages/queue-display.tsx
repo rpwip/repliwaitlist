@@ -26,7 +26,7 @@ type QueueEntryWithWaitTime = {
 };
 
 export default function QueueDisplay() {
-  const [selectedClinicId, setSelectedClinicId] = useState<number | undefined>();
+  const [selectedClinicId, setSelectedClinicId] = useState<number>(15);
   const { queue, isLoading, clinics, isError } = useQueue();
   const typedQueue = (queue || []) as QueueEntryWithWaitTime[];
   const currentDate = new Date();
@@ -34,8 +34,8 @@ export default function QueueDisplay() {
 
   useEffect(() => {
     if (clinics && clinics.length > 0 && !selectedClinicId) {
-      const defaultClinic = clinics[0];
-      setSelectedClinicId(defaultClinic.id);
+      const yazhHealthcare = clinics.find(clinic => clinic.name === "Yazh Health Care");
+      setSelectedClinicId(yazhHealthcare?.id || clinics[0].id);
     }
   }, [clinics, selectedClinicId]);
 
