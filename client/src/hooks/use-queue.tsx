@@ -15,6 +15,7 @@ type QueueEntry = {
   };
   estimatedWaitTime: number;
   createdAt: string;
+  clinicId: number;
 };
 
 type RegistrationData = {
@@ -34,6 +35,7 @@ export function useQueue() {
   const { user } = useAuth();
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     function connect() {
@@ -43,21 +45,47 @@ export function useQueue() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
         const ws = new WebSocket(`${protocol}//${host}/ws`);
+        console.log('Attempting WebSocket connection to:', `${protocol}//${host}/ws`);
 
         ws.onopen = () => {
           console.log('WebSocket connected');
           setIsConnected(true);
 
-          if (user) {
-            ws.send(JSON.stringify({ type: 'AUTH', token: user.id }));
+          // Clear any existing reconnect timeout
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+
+          if (user?.id) {
+            console.log('Authenticating WebSocket with user ID:', user.id);
+            ws.send(JSON.stringify({ type: 'AUTH', token: user.id.toString() }));
+          } else {
+            console.error('No user ID available for WebSocket authentication');
           }
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (data.type === "QUEUE_UPDATE") {
-              console.log('Received queue update, invalidating query');
+            console.log('WebSocket message received:', data);
+
+            if (data.type === "CONNECTED") {
+              if (data.authenticated) {
+                console.log('WebSocket authenticated successfully');
+                toast({
+                  title: "Connected",
+                  description: "Real-time updates are now active",
+                });
+              } else if (data.error) {
+                console.error('WebSocket authentication failed:', data.error);
+                toast({
+                  title: "Connection Error",
+                  description: data.error,
+                  variant: "destructive",
+                });
+              }
+            } else if (data.type === "QUEUE_UPDATE") {
+              console.log('Queue update received, invalidating query');
               queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
             }
           } catch (error) {
@@ -73,8 +101,11 @@ export function useQueue() {
         ws.onclose = () => {
           console.log('WebSocket disconnected');
           setIsConnected(false);
-          if (user) {
-            setTimeout(connect, 5000);
+
+          // Only attempt reconnect if we have a user
+          if (user?.id) {
+            console.log('Scheduling reconnection attempt...');
+            reconnectTimeoutRef.current = setTimeout(connect, 5000);
           }
         };
 
@@ -85,8 +116,11 @@ export function useQueue() {
       }
     }
 
-    if (user) {
+    // Only attempt connection if we have a user
+    if (user?.id) {
       connect();
+    } else {
+      console.log('No user logged in, skipping WebSocket connection');
     }
 
     return () => {
@@ -94,12 +128,16 @@ export function useQueue() {
         wsRef.current.close();
         wsRef.current = null;
       }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
     };
-  }, [user]);
+  }, [user, toast]);
 
   const queueQuery = useQuery<QueueEntry[]>({
     queryKey: ["/api/queue"],
     queryFn: async () => {
+      console.log('Fetching queue data...');
       try {
         const res = await apiRequest("GET", "/api/queue", undefined, {
           credentials: 'include'
@@ -111,7 +149,15 @@ export function useQueue() {
         }
         const data = await res.json();
         console.log('Queue data received:', data);
-        return data;
+        // Validate the data structure
+        const validatedData = data.map((entry: any) => {
+          console.log('Processing queue entry:', entry);
+          if (!entry.patient || !entry.patient.id || !entry.patient.fullName) {
+            console.error('Invalid patient data in queue entry:', entry);
+          }
+          return entry;
+        });
+        return validatedData;
       } catch (error) {
         console.error('Error fetching queue:', error);
         throw error;

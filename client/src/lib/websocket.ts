@@ -11,8 +11,8 @@ export function setupWebSocket() {
   }
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host; // This includes hostname:port
-  const wsUrl = `${protocol}//${host}`;
+  const host = window.location.host;
+  const wsUrl = `${protocol}//${host}/ws`;
 
   console.log('Setting up WebSocket connection to:', wsUrl);
 
@@ -32,7 +32,16 @@ export function setupWebSocket() {
       console.log('WebSocket disconnected');
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
-        setTimeout(setupWebSocket, 1000 * Math.min(reconnectAttempts, 30));
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Exponential backoff
+        console.log(`Attempting reconnection in ${delay/1000} seconds...`);
+        setTimeout(setupWebSocket, delay);
+      } else {
+        console.log('Max reconnection attempts reached');
+        toast({
+          title: "Connection Lost",
+          description: "Could not reconnect to server after multiple attempts",
+          variant: "destructive",
+        });
       }
     };
 
