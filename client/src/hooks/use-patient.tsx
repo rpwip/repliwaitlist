@@ -33,13 +33,12 @@ export function usePatient() {
 
         console.log('API response status:', res.status);
 
-        // Handle 404 explicitly
         if (res.status === 404) {
           console.log('Patient not found - returning null');
           return null;
         }
 
-        if (!res.ok) {
+        if (!res.ok && res.status !== 404) {
           const errorText = await res.text();
           console.error('API error response:', errorText);
           throw new Error(errorText || "Failed to verify patient");
