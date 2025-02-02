@@ -69,7 +69,7 @@ export default function PatientVerificationForm() {
         console.log("No patient found, preparing registration form");
         setIsNewPatient(true);
 
-        // Reset registration form with only mobile
+        // Reset registration form with only mobile, ensure form is editable
         registrationForm.reset({
           fullName: "",
           email: "",
@@ -221,7 +221,7 @@ export default function PatientVerificationForm() {
               <FormItem>
                 <FormLabel>Full Name</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} disabled={!isNewPatient} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
