@@ -39,7 +39,7 @@ export default function QueueDisplay() {
 
     if (clinicIdParam) {
       setSelectedClinicId(parseInt(clinicIdParam));
-    } else if (clinics && clinics.length > 0 && !selectedClinicId) {
+    } else if (clinics && Array.isArray(clinics) && clinics.length > 0 && !selectedClinicId) {
       const yazhHealthcare = clinics.find(clinic => clinic.name === "Yazh Health Care");
       setSelectedClinicId(yazhHealthcare?.id || clinics[0].id);
     }
@@ -58,7 +58,7 @@ export default function QueueDisplay() {
     );
   }
 
-  if (isLoading || !clinics || clinics.length === 0) {
+  if (isLoading || !clinics || !Array.isArray(clinics) || clinics.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -67,9 +67,7 @@ export default function QueueDisplay() {
   }
 
   // Filter queue based on selected clinic
-  const filteredQueue = selectedClinicId
-    ? typedQueue.filter((q) => q.clinicId === selectedClinicId)
-    : typedQueue;
+  const filteredQueue = typedQueue.filter((q) => q.clinicId === selectedClinicId);
 
   const currentPatient = filteredQueue.find((q) => q.status === "in-progress");
   const waitingPatients = filteredQueue
@@ -104,6 +102,33 @@ export default function QueueDisplay() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
+          {/* Currently Serving */}
+          <Card className="p-8">
+            <h2 className="text-2xl font-semibold mb-4">Now Serving</h2>
+            {currentPatient ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center">
+                  <div className="text-center">
+                    <QueueNumber
+                      number={currentPatient.queueNumber}
+                      className="text-8xl"
+                    />
+                    <div className="mt-4 flex items-center justify-center space-x-2">
+                      <UserRound className="h-6 w-6 text-muted-foreground" />
+                      <p className="text-lg">
+                        {currentPatient.patient.fullName}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground">
+                No patient currently being served
+              </p>
+            )}
+          </Card>
+
           {/* Waiting Patients */}
           <Card className="p-8">
             <h2 className="text-2xl font-semibold mb-4">Waiting Patients</h2>
@@ -136,33 +161,6 @@ export default function QueueDisplay() {
                 </p>
               )}
             </div>
-          </Card>
-
-          {/* Currently Serving */}
-          <Card className="p-8">
-            <h2 className="text-2xl font-semibold mb-4">Now Serving</h2>
-            {currentPatient ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-center">
-                  <div className="text-center">
-                    <QueueNumber
-                      number={currentPatient.queueNumber}
-                      className="text-8xl"
-                    />
-                    <div className="mt-4 flex items-center justify-center space-x-2">
-                      <UserRound className="h-6 w-6 text-muted-foreground" />
-                      <p className="text-lg">
-                        {currentPatient.patient.fullName}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-center text-muted-foreground">
-                No patient currently being served
-              </p>
-            )}
           </Card>
         </div>
       </div>
