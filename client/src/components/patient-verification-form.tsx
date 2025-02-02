@@ -50,7 +50,7 @@ export default function PatientVerificationForm() {
     defaultValues: {
       fullName: "",
       email: "",
-      mobile: verificationForm.getValues().mobile || "",
+      mobile: "",
     },
   });
 
@@ -60,7 +60,7 @@ export default function PatientVerificationForm() {
       const response = await verifyPatient({ mobile: data.mobile });
       console.log("Verification response:", response);
 
-      // Clear all states first
+      // Clear previous states
       setRegistrationData(null);
       setFoundPatients([]);
       setSelectedPatient(null);
@@ -69,7 +69,7 @@ export default function PatientVerificationForm() {
         console.log("No patient found, preparing registration form");
         setIsNewPatient(true);
 
-        // Reset registration form with only mobile
+        // Reset registration form with only mobile number
         registrationForm.reset({
           fullName: "",
           email: "",
@@ -83,24 +83,7 @@ export default function PatientVerificationForm() {
         return;
       }
 
-      // Handle single patient found
-      if (!Array.isArray(response)) {
-        console.log("Single patient found:", response);
-        setSelectedPatient(response);
-        setIsNewPatient(false);
-
-        if (response.queueEntry) {
-          setRegistrationData({ patient: response, queueEntry: response.queueEntry });
-        }
-
-        toast({
-          title: "Patient Found",
-          description: "Proceeding to next step...",
-        });
-        return;
-      }
-
-      // Patient(s) found
+      // Handle existing patient(s)
       setIsNewPatient(false);
 
       if (Array.isArray(response)) {
@@ -167,8 +150,6 @@ export default function PatientVerificationForm() {
   // Show payment QR if we have registration data or selected patient with queue entry
   if (registrationData?.queueEntry || (selectedPatient?.queueEntry && !isNewPatient)) {
     const queueEntry = registrationData?.queueEntry || selectedPatient?.queueEntry;
-    console.log("Showing payment QR for queue entry:", queueEntry);
-
     return (
       <Card className="p-6">
         <CardHeader>
@@ -193,7 +174,6 @@ export default function PatientVerificationForm() {
 
   // Show patient selection if multiple patients found
   if (foundPatients.length > 0 && !isNewPatient) {
-    console.log("Showing patient selection UI");
     return (
       <Card>
         <CardHeader>
@@ -227,7 +207,6 @@ export default function PatientVerificationForm() {
 
   // Show registration form for new patient
   if (isNewPatient) {
-    console.log("Showing registration form");
     return (
       <Form {...registrationForm}>
         <form onSubmit={registrationForm.handleSubmit(handleRegistration)} className="space-y-6">
@@ -238,7 +217,10 @@ export default function PatientVerificationForm() {
               <FormItem>
                 <FormLabel>Full Name</FormLabel>
                 <FormControl>
-                  <Input {...field} disabled={!isNewPatient} />
+                  <Input 
+                    placeholder="Enter your full name"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -252,7 +234,11 @@ export default function PatientVerificationForm() {
               <FormItem>
                 <FormLabel>Email (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="email" {...field} />
+                  <Input 
+                    type="email"
+                    placeholder="Enter your email address"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -282,7 +268,6 @@ export default function PatientVerificationForm() {
   }
 
   // Show verification form (default view)
-  console.log("Showing verification form");
   return (
     <Form {...verificationForm}>
       <form onSubmit={verificationForm.handleSubmit(handleVerification)} className="space-y-6">
@@ -293,7 +278,10 @@ export default function PatientVerificationForm() {
             <FormItem>
               <FormLabel>Mobile Number</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input 
+                  placeholder="Enter your mobile number"
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
