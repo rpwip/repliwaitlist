@@ -25,6 +25,7 @@ export default function QueueDisplay() {
   const typedQueue = queue as QueueEntryWithWaitTime[];
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [showNewVisitForm, setShowNewVisitForm] = useState(false);
+  const [currentClinicId, setCurrentClinicId] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -39,21 +40,24 @@ export default function QueueDisplay() {
     .filter((q) => q.status === "waiting")
     .slice(0, 5);
 
-  const handleStartConsult = (patientId: number) => {
-    console.log("Starting consult for patient:", patientId);
-    setSelectedPatientId(patientId);
+  const handleStartConsult = (patient: { id: number, clinicId: number }) => {
+    console.log("Starting consult for patient:", patient);
+    setSelectedPatientId(patient.id);
+    setCurrentClinicId(patient.clinicId);
     setShowNewVisitForm(true);
   };
 
-  const handleViewPatientHistory = (patientId: number) => {
-    console.log("Viewing patient history for:", patientId);
-    setSelectedPatientId(patientId);
+  const handleViewPatientHistory = (patient: { id: number, clinicId: number }) => {
+    console.log("Viewing patient history for:", patient);
+    setSelectedPatientId(patient.id);
+    setCurrentClinicId(patient.clinicId);
     setShowNewVisitForm(false);
   };
 
   const handleCloseModal = () => {
     setSelectedPatientId(null);
     setShowNewVisitForm(false);
+    setCurrentClinicId(null);
   };
 
   return (
@@ -77,7 +81,10 @@ export default function QueueDisplay() {
                   {currentPatient.patient.fullName}
                 </p>
                 <Button 
-                  onClick={() => handleStartConsult(currentPatient.patient.id)}
+                  onClick={() => handleStartConsult({
+                    id: currentPatient.patient.id,
+                    clinicId: currentPatient.clinicId
+                  })}
                   className="w-full"
                 >
                   Start Consultation
@@ -94,32 +101,40 @@ export default function QueueDisplay() {
             <h2 className="text-2xl font-semibold mb-4">Next in Line</h2>
             <div className="space-y-4">
               {waitingPatients.map((patient) => (
-                <button
+                <div
                   key={patient.id}
-                  className="w-full text-left"
-                  onClick={() => {
-                    console.log("Patient card clicked:", patient.patient.id);
-                    handleViewPatientHistory(patient.patient.id);
-                  }}
+                  className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
                 >
-                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg hover:bg-muted/80 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <QueueNumber
-                        number={patient.queueNumber}
-                        className="text-4xl"
-                      />
-                      <div>
-                        <p className="font-medium">{patient.patient.fullName}</p>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4 mr-1" />
-                          <span>
-                            Est. wait: {patient.estimatedWaitTime} mins
-                          </span>
-                        </div>
+                  <div className="flex items-center space-x-4">
+                    <QueueNumber
+                      number={patient.queueNumber}
+                      className="text-4xl"
+                    />
+                    <div>
+                      <p className="font-medium">{patient.patient.fullName}</p>
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4 mr-1" />
+                        <span>
+                          Est. wait: {patient.estimatedWaitTime} mins
+                        </span>
                       </div>
                     </div>
                   </div>
-                </button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewPatientHistory({
+                          id: patient.patient.id,
+                          clinicId: patient.clinicId
+                        });
+                      }}
+                    >
+                      View History
+                    </Button>
+                  </div>
+                </div>
               ))}
               {waitingPatients.length === 0 && (
                 <p className="text-center text-muted-foreground">
@@ -137,7 +152,7 @@ export default function QueueDisplay() {
             open={!!selectedPatientId}
             showNewVisitForm={showNewVisitForm}
             doctorId={user?.id}
-            clinicId={currentPatient?.clinicId}
+            clinicId={currentClinicId || undefined}
           />
         )}
       </div>

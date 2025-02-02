@@ -311,6 +311,7 @@ export default function DoctorPortal() {
   const handleStartConsultation = (entry: QueueEntry) => {
     try {
       console.log("Starting consultation for:", entry);
+  
       // Format the entry data
       const formattedEntry = {
         ...entry,
@@ -327,14 +328,27 @@ export default function DoctorPortal() {
         },
         visitReason: entry.visitReason || 'Not specified'
       };
-
-      // Update state before making the API call
+  
+      // Update state
       setCurrentQueueEntry(formattedEntry);
       setSelectedPatientId(formattedEntry.patientId);
       setShowNewVisitModal(true);
-
+  
       // Make the API call
-      startConsultation.mutate(entry.id);
+      startConsultation.mutate(entry.id, {
+        onSuccess: () => {
+          console.log("Successfully started consultation");
+          // State is already set, no need to update here
+        },
+        onError: (error) => {
+          console.error("Failed to start consultation:", error);
+          toast({
+            title: "Error",
+            description: "Failed to start consultation. Please try again.",
+            variant: "destructive",
+          });
+        }
+      });
     } catch (error) {
       console.error('Error starting consultation:', error);
       toast({
@@ -851,6 +865,7 @@ const renderQueue = () => (
           onClose={() => {
             setSelectedPatientId(null);
             setShowNewVisitModal(false);
+            setCurrentQueueEntry(null);
           }}
           patientId={selectedPatientId}
           showNewVisitForm={showNewVisitModal}
