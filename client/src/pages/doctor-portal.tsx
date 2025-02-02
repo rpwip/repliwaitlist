@@ -294,7 +294,7 @@ export default function DoctorPortal() {
     },
   });
 
-   const handleStartConsultation = (entry: QueueEntry) => {
+ const handleStartConsultation = (entry: QueueEntry) => {
     try {
       const formattedEntry = {
         ...entry,
@@ -311,7 +311,7 @@ export default function DoctorPortal() {
         },
         visitReason: entry.visitReason || 'Not specified'
       };
-
+  
       setCurrentQueueEntry(formattedEntry);
       startConsultation.mutate(entry.id);
     } catch (error) {
@@ -323,7 +323,6 @@ export default function DoctorPortal() {
       });
     }
   };
-
 
   const handleSkipPatient = (queueId: number) => {
     skipPatient.mutate(queueId);
