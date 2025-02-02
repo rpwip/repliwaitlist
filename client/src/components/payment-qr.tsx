@@ -81,9 +81,14 @@ export default function PaymentQR({
   const handlePaymentConfirmation = async () => {
     try {
       setIsConfirming(true);
+      console.log('Starting payment confirmation for clinic:', clinicDetails);
       await confirmPayment(queueId);
       setIsPaid(true);
-      setLocation(`/queue?clinicId=${clinicDetails.id}`);
+
+      // Ensure clinicId is correctly passed in the URL
+      const redirectUrl = `/queue?clinicId=${clinicDetails.id}`;
+      console.log('Redirecting to:', redirectUrl);
+      setLocation(redirectUrl);
     } catch (error) {
       console.error('Payment confirmation failed:', error);
     } finally {

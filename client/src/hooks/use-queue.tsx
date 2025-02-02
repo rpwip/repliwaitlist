@@ -75,6 +75,9 @@ export function useQueue() {
       try {
         console.log('Fetching queue data...');
         const res = await apiRequest("GET", "/api/queue");
+        if (!res.ok) {
+          throw new Error('Failed to fetch queue data');
+        }
         const data = await res.json();
         console.log('Queue data fetched:', data);
         return data;
@@ -92,6 +95,9 @@ export function useQueue() {
       try {
         console.log('Fetching clinics data...');
         const res = await apiRequest("GET", "/api/clinics");
+        if (!res.ok) {
+          throw new Error('Failed to fetch clinics data');
+        }
         const data = await res.json();
         console.log('Clinics data fetched:', data);
         return data;
@@ -129,29 +135,29 @@ export function useQueue() {
     },
     onError: (error: Error) => {
       console.error('Registration mutation failed:', error);
-      throw error;
-    }
-  });
-
-  const verifyPaymentMutation = useMutation({
-    mutationFn: async ({ queueId, transactionRef }: { queueId: number, transactionRef: string }) => {
-      const res = await apiRequest(
-        "GET",
-        `/api/verify-payment/${queueId}/${transactionRef}`
-      );
-      return res.json();
+      toast({
+        title: "Registration failed",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   });
 
   const confirmPaymentMutation = useMutation({
     mutationFn: async (queueId: number) => {
+      console.log('Confirming payment for queue ID:', queueId);
       const res = await apiRequest("POST", `/api/confirm-payment/${queueId}`);
       if (!res.ok) {
-        throw new Error("Failed to confirm payment");
+        const errorText = await res.text();
+        console.error('Payment confirmation error:', errorText);
+        throw new Error(errorText || "Failed to confirm payment");
       }
-      return res.json();
+      const data = await res.json();
+      console.log('Payment confirmation response:', data);
+      return data;
     },
     onSuccess: () => {
+      console.log('Payment confirmation successful, invalidating queue query');
       queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
       toast({
         title: "Payment confirmed",
@@ -159,12 +165,31 @@ export function useQueue() {
       });
     },
     onError: (error: Error) => {
+      console.error('Payment confirmation failed:', error);
       toast({
         title: "Payment confirmation failed",
         description: error.message,
         variant: "destructive",
       });
     },
+  });
+
+  const verifyPaymentMutation = useMutation({
+    mutationFn: async ({ queueId, transactionRef }: { queueId: number, transactionRef: string }) => {
+      console.log('Verifying payment:', { queueId, transactionRef });
+      const res = await apiRequest(
+        "GET",
+        `/api/verify-payment/${queueId}/${transactionRef}`
+      );
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Payment verification error:', errorText);
+        throw new Error(errorText || "Failed to verify payment");
+      }
+      const data = await res.json();
+      console.log('Payment verification response:', data);
+      return data;
+    }
   });
 
   return {
