@@ -1,0 +1,23 @@
+{
+  "name": "cloudcare",
+  "primary": "#FFB74D",
+  "variant": "tint",
+  "appearance": "light",
+  "radius": 0.5,
+  "colors": {
+    "background": "#FFF8E1",
+    "foreground": "#4A4A4A",
+    "muted": "#FFE0B2",
+    "mutedForeground": "#757575",
+    "border": "#FFE0B2",
+    "input": "#FFFFFF",
+    "primary": "#FFB74D",
+    "primaryForeground": "#4A4A4A",
+    "secondary": "#FFA726",
+    "secondaryForeground": "#4A4A4A",
+    "accent": "#FFE082",
+    "accentForeground": "#4A4A4A",
+    "card": "#FFF3E0",
+    "cardForeground": "#4A4A4A"
+  }
+}
