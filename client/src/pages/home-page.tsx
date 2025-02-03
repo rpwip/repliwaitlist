@@ -1,52 +1,8 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { LanguageSelector } from "@/components/shared/LanguageSelector";
-import { PatientVerification } from "@/components/patient/PatientVerification";
-import { PatientSelection } from "@/components/patient/PatientSelection";
-import { PaymentQR } from "@/components/patient/PaymentQR";
-
-type Step = "verification" | "selection" | "payment";
+import PatientVerificationForm from "@/components/patient-verification-form";
+import { LanguageSelector } from "@/components/language-selector";
 
 export default function HomePage() {
-  const [currentStep, setCurrentStep] = useState<Step>("verification");
-  const [patientData, setPatientData] = useState<any>(null);
-  const [queueEntry, setQueueEntry] = useState<any>(null);
-
-  const handleVerified = (data: any) => {
-    setPatientData(data);
-    setCurrentStep("selection");
-  };
-
-  const handleClinicSelected = async (clinicId: number) => {
-    try {
-      const response = await fetch("/api/register-patient", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...patientData,
-          clinicId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to register patient");
-      }
-
-      const data = await response.json();
-      setQueueEntry(data.queueEntry);
-      setCurrentStep("payment");
-    } catch (error) {
-      console.error("Registration error:", error);
-    }
-  };
-
-  const handlePaymentComplete = () => {
-    // Redirect to queue display or refresh the page
-    window.location.href = "/queue";
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
       <header className="bg-primary text-primary-foreground py-8">
@@ -77,27 +33,11 @@ export default function HomePage() {
           <Card className="w-full">
             <CardHeader>
               <h2 className="text-2xl font-semibold text-center">
-                {currentStep === "verification" && "Patient Verification"}
-                {currentStep === "selection" && "Select Clinic"}
-                {currentStep === "payment" && "Complete Payment"}
+                Patient Verification
               </h2>
             </CardHeader>
             <CardContent>
-              {currentStep === "verification" && (
-                <PatientVerification onVerified={handleVerified} />
-              )}
-              {currentStep === "selection" && patientData && (
-                <PatientSelection
-                  patientData={patientData}
-                  onClinicSelected={handleClinicSelected}
-                />
-              )}
-              {currentStep === "payment" && queueEntry && (
-                <PaymentQR
-                  queueEntry={queueEntry}
-                  onPaymentComplete={handlePaymentComplete}
-                />
-              )}
+              <PatientVerificationForm />
             </CardContent>
           </Card>
 
