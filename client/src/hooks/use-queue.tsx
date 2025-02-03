@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -9,13 +9,12 @@ type QueueEntry = {
   queueNumber: number;
   status: string;
   patientId: number;
-  patient: {
-    id: number;
-    fullName: string;
-  };
+  patientName: string;
   estimatedWaitTime: number;
   createdAt: string;
   clinicId: number;
+  clinicName: string;
+  priority: number;
 };
 
 type RegistrationData = {
@@ -27,7 +26,7 @@ type RegistrationData = {
 
 type UpdateStatusData = {
   queueId: number;
-  status: "waiting" | "in-progress" | "completed";
+  status: "waiting" | "in-progress" | "completed" | "cancelled";
 };
 
 export function useQueue() {
@@ -51,7 +50,6 @@ export function useQueue() {
           console.log('WebSocket connected');
           setIsConnected(true);
 
-          // Clear any existing reconnect timeout
           if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
           }
@@ -59,8 +57,6 @@ export function useQueue() {
           if (user?.id) {
             console.log('Authenticating WebSocket with user ID:', user.id);
             ws.send(JSON.stringify({ type: 'AUTH', token: user.id.toString() }));
-          } else {
-            console.error('No user ID available for WebSocket authentication');
           }
         };
 
@@ -85,8 +81,8 @@ export function useQueue() {
                 });
               }
             } else if (data.type === "QUEUE_UPDATE") {
-              console.log('Queue update received, invalidating query');
-              queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+              console.log('Queue update received, invalidating queries');
+              queryClient.invalidateQueries({ queryKey: ["/api/queues"] });
             }
           } catch (error) {
             console.error('WebSocket message parsing error:', error);
@@ -102,7 +98,6 @@ export function useQueue() {
           console.log('WebSocket disconnected');
           setIsConnected(false);
 
-          // Only attempt reconnect if we have a user
           if (user?.id) {
             console.log('Scheduling reconnection attempt...');
             reconnectTimeoutRef.current = setTimeout(connect, 5000);
@@ -116,11 +111,8 @@ export function useQueue() {
       }
     }
 
-    // Only attempt connection if we have a user
     if (user?.id) {
       connect();
-    } else {
-      console.log('No user logged in, skipping WebSocket connection');
     }
 
     return () => {
@@ -135,33 +127,14 @@ export function useQueue() {
   }, [user, toast]);
 
   const queueQuery = useQuery<QueueEntry[]>({
-    queryKey: ["/api/queue"],
+    queryKey: ["/api/queues"],
     queryFn: async () => {
       console.log('Fetching queue data...');
-      try {
-        const res = await apiRequest("GET", "/api/queue", undefined, {
-          credentials: 'include'
-        });
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('Queue fetch error:', errorText);
-          throw new Error('Failed to fetch queue data');
-        }
-        const data = await res.json();
-        console.log('Queue data received:', data);
-        // Validate the data structure
-        const validatedData = data.map((entry: any) => {
-          console.log('Processing queue entry:', entry);
-          if (!entry.patient || !entry.patient.id || !entry.patient.fullName) {
-            console.error('Invalid patient data in queue entry:', entry);
-          }
-          return entry;
-        });
-        return validatedData;
-      } catch (error) {
-        console.error('Error fetching queue:', error);
-        throw error;
+      const response = await fetch('/api/queues', { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error('Failed to fetch queue data');
       }
+      return response.json();
     },
     retry: 1,
     enabled: !!user
@@ -169,21 +142,19 @@ export function useQueue() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async (data: UpdateStatusData) => {
-      console.log('Updating status:', data);
-      const res = await apiRequest(
-        "POST",
-        `/api/queue/${data.queueId}/status`,
-        { status: data.status },
-        { credentials: 'include' }
-      );
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to update status');
+      const response = await fetch(`/api/queues/entries/${data.queueId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: data.status }),
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update status');
       }
-      return res.json();
+      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/queues"] });
       toast({
         title: "Status updated",
         description: "Queue has been updated successfully",
@@ -201,22 +172,11 @@ export function useQueue() {
   const clinicsQuery = useQuery({
     queryKey: ["/api/clinics"],
     queryFn: async () => {
-      try {
-        const res = await apiRequest("GET", "/api/clinics", undefined, {
-          credentials: 'include'
-        });
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('Clinics fetch error:', errorText);
-          throw new Error('Failed to fetch clinics data');
-        }
-        const data = await res.json();
-        console.log('Fetched clinics:', data);
-        return data;
-      } catch (error) {
-        console.error('Error fetching clinics:', error);
-        throw error;
+      const response = await fetch('/api/clinics', { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error('Failed to fetch clinics data');
       }
+      return response.json();
     },
     retry: 1,
     enabled: !!user
@@ -224,31 +184,21 @@ export function useQueue() {
 
   const registerPatientMutation = useMutation({
     mutationFn: async (data: RegistrationData) => {
-      console.log('Starting patient registration with data:', data);
-      try {
-        const res = await apiRequest("POST", "/api/register-patient", data, {
-          credentials: 'include'
-        });
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('Registration API error:', errorText);
-          throw new Error(errorText || 'Failed to register patient');
-        }
-
-        const jsonResponse = await res.json();
-        console.log('Registration API success response:', jsonResponse);
-        return jsonResponse;
-      } catch (error) {
-        console.error('Registration mutation error:', error);
-        throw error;
+      const response = await fetch('/api/register-patient', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to register patient');
       }
+      return response.json();
     },
     onSuccess: () => {
-      console.log('Registration successful, invalidating queue query');
-      queryClient.invalidateQueries({ queryKey: ["/api/queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/queues"] });
     },
     onError: (error: Error) => {
-      console.error('Registration mutation failed:', error);
       toast({
         title: "Registration failed",
         description: error.message,

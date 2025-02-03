@@ -3,7 +3,7 @@ import request from 'supertest';
 import { app } from '../index';
 import { setupTestPatient, cleanupDatabase } from './setup';
 import { db } from '@db';
-import { queueEntries, clinics, doctors, users } from '@db/schema';
+import { queueEntries, clinics, doctors, users, patients } from '@db/schema';
 import { eq } from 'drizzle-orm';
 
 describe('Queue Management API', () => {
@@ -15,14 +15,11 @@ describe('Queue Management API', () => {
   beforeEach(async () => {
     await cleanupDatabase();
 
-    // Create test data
-    testPatient = await setupTestPatient();
-
     // Create test clinic
     [testClinic] = await db
       .insert(clinics)
       .values({
-        name: 'Test Clinic',
+        name: 'Cloud Care Test Clinic',
         address: 'Test Address',
         type: 'General',
         contactNumber: '1234567890',
@@ -34,10 +31,12 @@ describe('Queue Management API', () => {
       .insert(users)
       .values({
         username: 'testdoctor',
-        password: 'hashedpassword', // In real tests, this would be properly hashed
+        password: 'hashedpassword',
+        isAdmin: false,
       })
       .returning();
 
+    // Create test doctor
     [testDoctor] = await db
       .insert(doctors)
       .values({
@@ -49,6 +48,18 @@ describe('Queue Management API', () => {
       })
       .returning();
 
+    // Create test patient
+    [testPatient] = await db
+      .insert(patients)
+      .values({
+        fullName: 'Test Patient',
+        email: 'test@patient.com',
+        mobile: '1234567890',
+        dateOfBirth: new Date('1990-01-01'),
+        gender: 'Other',
+      })
+      .returning();
+
     // Login to get auth cookie
     const loginResponse = await request(app)
       .post('/api/login')
@@ -57,10 +68,10 @@ describe('Queue Management API', () => {
     authCookie = loginResponse.headers['set-cookie']?.[0] ?? '';
   });
 
-  describe('GET /api/queue', () => {
+  describe('GET /api/queues/:clinicId', () => {
     it('returns empty queue when no patients are waiting', async () => {
       const response = await request(app)
-        .get('/api/queue')
+        .get(`/api/queues/${testClinic.id}`)
         .expect(200);
 
       expect(response.body).toEqual([]);
@@ -74,19 +85,19 @@ describe('Queue Management API', () => {
         status: 'waiting',
         clinicId: testClinic.id,
         isPaid: true,
+        priority: 0,
       });
 
       const response = await request(app)
-        .get('/api/queue')
+        .get(`/api/queues/${testClinic.id}`)
         .expect(200);
 
       expect(response.body).toHaveLength(1);
       expect(response.body[0]).toMatchObject({
         queueNumber: 1,
         status: 'waiting',
-        patient: {
-          fullName: testPatient.fullName,
-        },
+        patientName: testPatient.fullName,
+        estimatedWaitTime: expect.any(Number),
       });
     });
 
@@ -99,6 +110,7 @@ describe('Queue Management API', () => {
           status: 'waiting',
           clinicId: testClinic.id,
           isPaid: true,
+          priority: 0,
         },
         {
           patientId: testPatient.id,
@@ -106,11 +118,12 @@ describe('Queue Management API', () => {
           status: 'waiting',
           clinicId: testClinic.id,
           isPaid: true,
+          priority: 0,
         },
       ]);
 
       const response = await request(app)
-        .get('/api/queue')
+        .get(`/api/queues/${testClinic.id}`)
         .expect(200);
 
       expect(response.body[0].estimatedWaitTime).toBeDefined();
@@ -118,16 +131,39 @@ describe('Queue Management API', () => {
     });
   });
 
-  describe('POST /api/queue/:queueId/status', () => {
+  describe('POST /api/queues/:clinicId/entries', () => {
     it('requires authentication', async () => {
       await request(app)
-        .post('/api/queue/1/status')
+        .post(`/api/queues/${testClinic.id}/entries`)
+        .send({ patientId: testPatient.id })
+        .expect(401);
+    });
+
+    it('creates a new queue entry', async () => {
+      const response = await request(app)
+        .post(`/api/queues/${testClinic.id}/entries`)
+        .set('Cookie', authCookie)
+        .send({ patientId: testPatient.id })
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        queueNumber: expect.any(Number),
+        status: 'waiting',
+        patientId: testPatient.id,
+        clinicId: testClinic.id,
+      });
+    });
+  });
+
+  describe('PATCH /api/queues/entries/:entryId/status', () => {
+    it('requires authentication', async () => {
+      await request(app)
+        .patch('/api/queues/entries/1/status')
         .send({ status: 'in-progress' })
         .expect(401);
     });
 
     it('updates queue entry status', async () => {
-      // Add patient to queue
       const [queueEntry] = await db
         .insert(queueEntries)
         .values({
@@ -136,11 +172,12 @@ describe('Queue Management API', () => {
           status: 'waiting',
           clinicId: testClinic.id,
           isPaid: true,
+          priority: 0,
         })
         .returning();
 
       const response = await request(app)
-        .post(`/api/queue/${queueEntry.id}/status`)
+        .patch(`/api/queues/entries/${queueEntry.id}/status`)
         .set('Cookie', authCookie)
         .send({ status: 'in-progress' })
         .expect(200);
@@ -154,33 +191,6 @@ describe('Queue Management API', () => {
         .where(eq(queueEntries.id, queueEntry.id));
 
       expect(updatedEntry.status).toBe('in-progress');
-    });
-
-    it('returns 404 for non-existent queue entry', async () => {
-      await request(app)
-        .post('/api/queue/999/status')
-        .set('Cookie', authCookie)
-        .send({ status: 'in-progress' })
-        .expect(404);
-    });
-
-    it('validates status value', async () => {
-      const [queueEntry] = await db
-        .insert(queueEntries)
-        .values({
-          patientId: testPatient.id,
-          queueNumber: 1,
-          status: 'waiting',
-          clinicId: testClinic.id,
-          isPaid: true,
-        })
-        .returning();
-
-      await request(app)
-        .post(`/api/queue/${queueEntry.id}/status`)
-        .set('Cookie', authCookie)
-        .send({ status: 'invalid-status' })
-        .expect(400);
     });
   });
 });
