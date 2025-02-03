@@ -31,9 +31,9 @@ const wss = new WebSocketServer({ server: httpServer });
 setupWebSocketServer(wss);
 
 // Start server
-const port = process.env.PORT || 3000;
+const port = 5001; // Changed port for CloudCare Model X1
 httpServer.listen(port, "0.0.0.0", () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`CloudCare Model X1 server running on port ${port}`);
 });
 
 export { app, httpServer };
