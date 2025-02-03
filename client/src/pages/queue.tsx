@@ -14,6 +14,17 @@ import { format } from "date-fns";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
 
+type QueueEntryWithWaitTime = {
+  id: number;
+  queueNumber: number;
+  status: string;
+  patientId: number;
+  fullName: string;
+  estimatedWaitTime: number;
+  clinicId: number;
+  createdAt: string;
+};
+
 export default function Queue() {
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const { clinics, isLoading: isLoadingClinics } = useQueue();
@@ -24,21 +35,29 @@ export default function Queue() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const clinicIdParam = params.get('clinicId');
+    console.log('URL clinic ID:', clinicIdParam);
+
     if (clinicIdParam) {
-      setSelectedClinicId(parseInt(clinicIdParam));
+      const parsedId = parseInt(clinicIdParam);
+      console.log('Setting selected clinic ID from URL:', parsedId);
+      setSelectedClinicId(parsedId);
     }
   }, []);
 
-  // Fetch clinic-specific queue
+  // Use TanStack Query to fetch clinic-specific queue
   const { data: clinicQueue, isLoading: isLoadingQueue, isError } = useQuery({
-    queryKey: ['/api/queues', selectedClinicId],
+    queryKey: ['/api/queue', selectedClinicId],
     queryFn: async () => {
       if (!selectedClinicId) return [];
-      const response = await fetch(`/api/queues/${selectedClinicId}`);
+      const response = await fetch(`/api/queue/${selectedClinicId}`);
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error fetching clinic queue:', errorText);
         throw new Error('Failed to fetch queue data');
       }
-      return response.json();
+      const data = await response.json();
+      console.log('Clinic queue data:', data);
+      return data as QueueEntryWithWaitTime[];
     },
     enabled: !!selectedClinicId,
   });
@@ -64,10 +83,16 @@ export default function Queue() {
     );
   }
 
+  console.log('Selected Clinic ID:', selectedClinicId);
+  console.log('Clinic Queue Data:', clinicQueue);
+
   const currentPatient = clinicQueue?.find(q => q.status === "in-progress");
   const waitingPatients = clinicQueue
     ?.filter(q => q.status === "waiting")
     .sort((a, b) => a.queueNumber - b.queueNumber) || [];
+
+  console.log("Current patient:", currentPatient);
+  console.log("Waiting patients:", waitingPatients);
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -80,7 +105,11 @@ export default function Queue() {
         <div className="flex items-center justify-between mb-8">
           <Select
             value={selectedClinicId?.toString()}
-            onValueChange={(value) => setSelectedClinicId(parseInt(value))}
+            onValueChange={(value) => {
+              const clinicId = parseInt(value);
+              console.log("Changing clinic selection to:", clinicId);
+              setSelectedClinicId(clinicId);
+            }}
           >
             <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Select clinic" />
@@ -113,7 +142,7 @@ export default function Queue() {
                         className="text-4xl"
                       />
                       <div>
-                        <p className="font-medium">{entry.patientName}</p>
+                        <p className="font-medium">{entry.fullName}</p>
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Clock className="h-4 w-4 mr-1" />
                           <span>
@@ -146,7 +175,7 @@ export default function Queue() {
                     <div className="mt-4 flex items-center justify-center space-x-2">
                       <UserRound className="h-6 w-6 text-muted-foreground" />
                       <p className="text-lg">
-                        {currentPatient.patientName}
+                        {currentPatient.fullName}
                       </p>
                     </div>
                   </div>
