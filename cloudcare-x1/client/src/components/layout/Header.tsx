@@ -1,30 +1,37 @@
-import { Button } from "../ui/button";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
+import { CloudCareLogo } from "@/components/ui/cloud-care-logo";
 
 export default function Header() {
   const { user, logoutMutation } = useAuth();
 
   return (
-    <header className="border-b">
+    <header className="border-b bg-primary/5">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/">
-          <a className="text-2xl font-bold text-primary">CloudCare X1</a>
+          <a className="flex items-center space-x-2">
+            <CloudCareLogo size="lg" />
+          </a>
         </Link>
-        
+
         <nav className="flex items-center gap-6">
           {user ? (
             <>
               <Link href="/queue">
-                <a className="text-sm font-medium">Queue Status</a>
+                <a className="text-sm font-medium hover:text-primary transition-colors">
+                  Queue Status
+                </a>
               </Link>
               {user.isAdmin && (
                 <Link href="/admin">
-                  <a className="text-sm font-medium">Admin</a>
+                  <a className="text-sm font-medium hover:text-primary transition-colors">
+                    Admin
+                  </a>
                 </Link>
               )}
               <Button 
-                variant="ghost" 
+                variant="secondary"
                 onClick={() => logoutMutation.mutate()}
                 disabled={logoutMutation.isPending}
               >
@@ -33,7 +40,9 @@ export default function Header() {
             </>
           ) : (
             <Link href="/auth">
-              <a className="text-sm font-medium">Login</a>
+              <a className="text-sm font-medium hover:text-primary transition-colors">
+                Login
+              </a>
             </Link>
           )}
         </nav>
