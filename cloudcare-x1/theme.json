@@ -7,17 +7,17 @@
   "colors": {
     "background": "#FFF8E1",
     "foreground": "#4A4A4A",
-    "muted": "#FFE0B2",
+    "muted": "#E8DEF8",
     "mutedForeground": "#757575",
-    "border": "#FFE0B2",
+    "border": "#D0BCFF",
     "input": "#FFFFFF",
     "primary": "#7C4DFF",
     "primaryForeground": "#FFFFFF",
     "secondary": "#673AB7",
     "secondaryForeground": "#FFFFFF",
-    "accent": "#FFE082",
+    "accent": "#B4A5FF",
     "accentForeground": "#4A4A4A",
-    "card": "#FFF3E0",
+    "card": "#F5F0FF",
     "cardForeground": "#4A4A4A"
   }
 }
