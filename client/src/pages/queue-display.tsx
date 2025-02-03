@@ -23,6 +23,7 @@ type QueueEntryWithWaitTime = {
   };
   estimatedWaitTime: number;
   clinicId: number;
+  createdAt: string;
 };
 
 export default function QueueDisplay() {
@@ -138,7 +139,7 @@ export default function QueueDisplay() {
                     <div className="mt-4 flex items-center justify-center space-x-2">
                       <UserRound className="h-6 w-6 text-muted-foreground" />
                       <p className="text-lg">
-                        {currentPatient.patient.fullName}
+                        {currentPatient.patient?.fullName}
                       </p>
                     </div>
                   </div>
@@ -166,7 +167,7 @@ export default function QueueDisplay() {
                       className="text-4xl"
                     />
                     <div>
-                      <p className="font-medium">{patient.patient.fullName}</p>
+                      <p className="font-medium">{patient.patient?.fullName}</p>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Clock className="h-4 w-4 mr-1" />
                         <span>
