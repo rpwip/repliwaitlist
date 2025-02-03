@@ -3,7 +3,7 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/hooks/use-auth";
-import { LanguageProvider } from "./lib/language-context";
+import { LanguageProvider } from "@/lib/language-context";
 import { ProtectedRoute } from "./lib/protected-route";
 
 import HomePage from "./pages/home-page";
