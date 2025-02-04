@@ -1,0 +1,259 @@
+angular-cloudcareui-app/
+├── src/
+│   ├── app/
+│   │   ├── account-management/
+│   │   │   ├── account-management.component.ts
+│   │   │   ├── account-management.component.html
+│   │   │   └── account-management.component.sass
+│   │   ├── queue-management/
+│   │   │   ├── queue-management.component.ts
+│   │   │   ├── queue-management.component.html
+│   │   │   └── queue-management.component.sass
+│   │   ├── PaymentQR-management/
+│   │   │   ├── paymentQR-management.component.ts
+│   │   │   ├── paymentQR-management.component.html
+│   │   │   └── paymentQR-management.component.sass
+│   │   ├── clinic-portal/
+│   │   │   ├── doctors/
+│   │   │   ├── patients/
+│   │   │   ├── Queue-details/
+│   │   │   │   ├── queueVitalUpdateClinic-details.component.ts
+│   │   │   │   ├── queueVitalUpdateClinic-details.component.html
+│   │   │   │   └── queueVitalUpdateClinic-details.component.sass
+│   │   │  	└── prescriptions/
+│   │   ├── doctor-portal/
+│   │   │   ├── dashboard/
+│   │   │   │   ├── dashboard.component.ts
+│   │   │   │   ├── dashboard.component.html
+│   │   │   │   └── dashboard.component.sass
+│   │   │   ├── patient-visits/
+│   │   │   │   ├── patient-visits.component.ts
+│   │   │   │   ├── patient-visits.component.html
+│   │   │   │   └── patient-visits.component.sass
+│   │   │   ├── doctor-details/
+│   │   │   │   ├── doctor-details.component.ts
+│   │   │   │   ├── doctor-details.component.html
+│   │   │   │   └── doctor-details.component.sass
+│   │   │   ├── Queue-details/
+│   │   │   │   ├── queueSelectionDoc-details.component.ts
+│   │   │   │   ├── queueSelectionDoc-details.component.html
+│   │   │   │   └── queueSelectionDoc-details.component.sass
+│   │   │   ├── doctor-portal.component.ts
+│   │   │   ├── doctor-portal.component.html
+│   │   │   └── doctor-portal.component.sass
+│   │   ├── home/
+│   │   │   ├── home-portal.component.ts
+│   │   │   ├── home-portal.component.html
+│   │   │   └── home-portal.component.sass
+│   │   ├── patient-portal/
+│   │   │   ├── visit-records/
+│   │   │   │   ├── visit-records.component.ts
+│   │   │   │   ├── visit-records.component.html
+│   │   │   │   └── visit-records.component.sass
+│   │   │   ├── medications/
+│   │   │   │   ├── medications.component.ts
+│   │   │   │   ├── medications.component.html
+│   │   │   │   └── medications.component.sass
+│   │   │   ├── diagnoses/
+│   │   │   │   ├── diagnoses.component.ts
+│   │   │   │   ├── diagnoses.component.html
+│   │   │   │   └── diagnoses.component.sass
+│   │   │   ├── patient-portal.component.ts
+│   │   │   ├── patient-portal.component.html
+│   │   │   └── patient-portal.component.sass
+│   │   ├── pharmacy-portal/
+│   │   │   ├── orders/
+│   │   │   ├── pharmacy-portal.component.ts
+│   │   │   ├── pharmacy-portal.component.html
+│   │   │   └── pharmacy-portal.component.sass
+│   │   ├── services/
+│   │   │   ├── auth.service.ts
+│   │   │   ├── clinic.service.ts
+│   │   │   ├── doctor.service.ts
+│   │   │   ├── patient.service.ts
+│   │   │   └── pharmacy.service.ts
+│   │   ├── models/
+│   │   │   ├── clinic.model.ts
+│   │   │   ├── doctor.model.ts
+│   │   │   ├── diagnosis.model.ts
+│   │   │   ├── medication.model.ts
+│   │   │   ├── order.model.ts
+│   │   │   ├── order-medication.model.ts
+│   │   │   ├── patient.model.ts
+│   │   │   ├── pharmacy.model.ts
+│   │   │   ├── visit-record.model.ts
+│   │   │   └── user.model.ts
+│   │   ├── material.module.ts
+│   │   ├── app-routing.module.ts
+│   │   ├── app.module.ts
+│   ├── assets/
+│   │   ├── healthcare-background.jpg
+│   ├── environments/
+│   │   ├── environment.ts
+│   │   ├── environment.prod.ts
+│   ├── styles.sass
+├── react.json
+├── package.json
+
+
+
+
+express-cloudcare-api/
+├── controllers/
+│   ├── authController.js
+│   ├── queueController.js
+│   ├── patientController.js
+│   ├── doctorController.js
+│   ├── clinicController.js
+│   ├── pharmacyController.js
+│	├── patientHistoryController.js
+│   ├── visitRecordController.js
+│   ├── paymentQRController.js
+├── models/
+│   ├── user.js
+│   ├── patient.js
+│   ├── doctor.js
+│   ├── clinic.js
+│   ├── pharmacy.js
+│   ├── visitRecord.js
+│   ├── medication.js
+│   ├── diagnosis.js
+│   ├── order.js
+│   ├── orderMedication.js
+├── routes/
+│   ├── authRoutes.js
+│   ├── patientRoutes.js
+│   ├── doctorRoutes.js
+│   ├── clinicRoutes.js
+│   ├── pharmacyRoutes.js
+│   ├── visitRecordRoutes.js
+│   ├── queueRoutes.js
+├── config/
+│   ├── db.js
+│   ├── auth.js
+├── middleware/
+│   ├── authMiddleware.js
+├── app.js
+├── package.json
+
+
+##postgres
+CREATE SCHEMA IF NOT EXISTS cloudcaresch;
+
+-- Drop tables if they already exist
+DROP TABLE IF EXISTS cloudcaresch.OrderMedications;
+DROP TABLE IF EXISTS cloudcaresch.Orders;
+DROP TABLE IF EXISTS cloudcaresch.Diagnoses;
+DROP TABLE IF EXISTS cloudcaresch.Medications;
+DROP TABLE IF EXISTS cloudcaresch.VisitRecords;
+DROP TABLE IF EXISTS cloudcaresch.Pharmacies;
+DROP TABLE IF EXISTS cloudcaresch.Clinics;
+DROP TABLE IF EXISTS cloudcaresch.Doctors;
+DROP TABLE IF EXISTS cloudcaresch.Patients;
+DROP TABLE IF EXISTS cloudcaresch.Users;
+DROP TABLE IF EXISTS cloudcaresch.queueEntry;
+
+-- Create Users table
+CREATE TABLE cloudcaresch.Users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL
+);
+
+-- Create Patients table
+CREATE TABLE cloudcaresch.Patients (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    age INT,
+    gender VARCHAR(50),
+    address TEXT,
+    FOREIGN KEY (user_id) REFERENCES cloudcaresch.Users(id)
+);
+
+-- Create Clinics table
+CREATE TABLE cloudcaresch.Clinics (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    address TEXT,
+    FOREIGN KEY (user_id) REFERENCES cloudcaresch.Users(id)
+);
+
+-- Create Doctors table
+CREATE TABLE cloudcaresch.Doctors (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    specialization VARCHAR(255),
+    clinic_id INT,
+    FOREIGN KEY (user_id) REFERENCES cloudcaresch.Users(id),
+    FOREIGN KEY (clinic_id) REFERENCES cloudcaresch.Clinics(id)
+);
+
+-- Create Pharmacies table
+CREATE TABLE cloudcaresch.Pharmacies (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    address TEXT,
+    FOREIGN KEY (user_id) REFERENCES cloudcaresch.Users(id)
+);
+
+-- Create VisitRecords table
+CREATE TABLE cloudcaresch.VisitRecords (
+    id SERIAL PRIMARY KEY,
+    patient_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    clinic_id INT NOT NULL,
+    visit_date TIMESTAMP NOT NULL,
+    diagnosis TEXT,
+    prescription TEXT,
+    FOREIGN KEY (patient_id) REFERENCES cloudcaresch.Patients(id),
+    FOREIGN KEY (doctor_id) REFERENCES cloudcaresch.Doctors(id),
+    FOREIGN KEY (clinic_id) REFERENCES cloudcaresch.Clinics(id)
+);
+
+-- Create Medications table
+CREATE TABLE cloudcaresch.Medications (
+    id SERIAL PRIMARY KEY,
+    visit_id INT NOT NULL,
+    medication_name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    frequency VARCHAR(50) NOT NULL,
+    before_or_after_meal VARCHAR(50),
+    FOREIGN KEY (visit_id) REFERENCES cloudcaresch.VisitRecords(id)
+);
+
+-- Create Diagnoses table
+CREATE TABLE cloudcaresch.Diagnoses (
+    id SERIAL PRIMARY KEY,
+    patient_id INT NOT NULL,
+    diagnosis TEXT NOT NULL,
+    diagnosis_date TIMESTAMP NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES cloudcaresch.Patients(id)
+);
+
+-- Create Orders table
+CREATE TABLE cloudcaresch.Orders (
+    id SERIAL PRIMARY KEY,
+    patient_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    clinic_id INT NOT NULL,
+    order_date TIMESTAMP NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES cloudcaresch.Patients(id),
+    FOREIGN KEY (doctor_id) REFERENCES cloudcaresch.Doctors(id),
+    FOREIGN KEY (clinic_id) REFERENCES cloudcaresch.Clinics(id)
+);
+
+-- Create OrderMedications table
+CREATE TABLE cloudcaresch.OrderMedications (
+    id SERIAL PRIMARY KEY,
+    order_id INT NOT NULL,
+    medication_name VARCHAR(255) NOT NULL,
+    quantity INT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES cloudcaresch.Orders(id)
+);
