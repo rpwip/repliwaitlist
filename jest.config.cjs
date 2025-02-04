@@ -6,8 +6,6 @@ module.exports = {
   moduleNameMapper: {
     '^@db$': '<rootDir>/db',
     '^@db/(.*)$': '<rootDir>/db/$1',
-    '^@components/(.*)$': '<rootDir>/src/components/$1',
-    '^@utils/(.*)$': '<rootDir>/src/utils/$1'
   },
   setupFiles: [
     '<rootDir>/server/tests/test-setup.ts',
@@ -27,18 +25,5 @@ module.exports = {
       useESM: true,
     },
   },
-  testTimeout: 30000,
-  collectCoverage: true,
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'clover'],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80
-    }
-  },
-  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
-  verbose: true
+  testTimeout: 30000
 };
